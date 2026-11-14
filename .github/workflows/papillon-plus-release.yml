@@ -1,0 +1,126 @@
+name: Papillon + Release APKs
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "plus-*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de release (ex: v8.6.3-plus)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: papillon-plus-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    if: github.repository == 'timpim-dev/Papillon-beta'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create secrets.json
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        run: |
+          jq -n \
+            --arg api_key "$POSTHOG_API_KEY" \
+            --arg host "$POSTHOG_HOST" \
+            '{POSTHOG_API_KEY: $api_key, POSTHOG_HOST: $host}' > secrets.json
+
+      - name: Prebuild Android
+        run: bunx expo prebuild --platform android --clean
+
+      - name: Configure optional shared keystore
+        env:
+          BETA_KEYSTORE: ${{ secrets.BETA_KEYSTORE }}
+          BETA_KEYSTORE_PASSWORD: ${{ secrets.BETA_KEYSTORE_PASSWORD }}
+          BETA_KEY_ALIAS: ${{ secrets.BETA_KEY_ALIAS }}
+          BETA_KEY_PASSWORD: ${{ secrets.BETA_KEY_PASSWORD }}
+        run: |
+          if [ -n "$BETA_KEYSTORE" ]; then
+            echo "$BETA_KEYSTORE" | base64 --decode > android/app/release.keystore
+            PASS="${BETA_KEYSTORE_PASSWORD:-android}"
+            ALIAS="${BETA_KEY_ALIAS:-androiddebugkey}"
+            KEYPASS="${BETA_KEY_PASSWORD:-$PASS}"
+            for cfg in android/app/build.gradle native/wear/build.gradle; do
+              sed -i "s|storeFile .*debug.keystore.*|storeFile rootProject.file(\"app/release.keystore\")|" "$cfg"
+              sed -i "s|storePassword \"android\"|storePassword \"$PASS\"|" "$cfg"
+              sed -i "s|keyAlias \"androiddebugkey\"|keyAlias \"$ALIAS\"|" "$cfg"
+              sed -i "s|keyPassword \"android\"|keyPassword \"$KEYPASS\"|" "$cfg"
+            done
+          fi
+
+      - name: Configure Gradle
+        run: |
+          chmod +x android/gradlew
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=1024m"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.caching=true"
+            echo "android.enable16KbPageSizes=true"
+          } >> android/gradle.properties
+
+      - name: Build Phone & Wear APKs
+        run: cd android && ./gradlew :app:assembleRelease :wear:assembleRelease --no-daemon
+
+      - name: Collect APKs
+        run: |
+          mkdir -p release-apks
+          cp android/app/build/outputs/apk/release/app-release.apk release-apks/papillon-plus-phone.apk
+          cp native/wear/build/outputs/apk/release/wear-release.apk release-apks/papillon-plus-wear.apk
+
+      - name: Determine release tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Papillon + ${{ steps.meta.outputs.tag }}
+          make_latest: true
+          files: |
+            release-apks/papillon-plus-phone.apk
+            release-apks/papillon-plus-wear.apk
+          body: |
+            ## Papillon + ${{ steps.meta.outputs.tag }}
+            - **Téléphone Android** : `papillon-plus-phone.apk`
+            - **Montre Wear OS** : `papillon-plus-wear.apk` (installable directement depuis Paramètres → Montre & Mises à jour dans Papillon +)

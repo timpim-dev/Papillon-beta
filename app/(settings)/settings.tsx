@@ -212,6 +212,15 @@ export default function SettingsIndex() {
         router.navigate("/(settings)/features")
       }
     },
+    {
+      icon: <Papicons name={"Clock"} />,
+      title: t("Settings_Watch_Card_Title"),
+      description: t("Settings_Watch_Card_Description"),
+      color: "#5E5CE6",
+      onPress: () => {
+        router.navigate("/(settings)/watch")
+      }
+    },
     ...(MAGIC_AVAILABLE ? [{
       icon: <Papicons name={"Sparkles"} />,
       title: "Magic+",

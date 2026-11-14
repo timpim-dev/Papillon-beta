@@ -118,6 +118,14 @@ export default function Layout() {
           }}
         />
         <Stack.Screen
+          name="watch"
+          options={{
+            headerTitle: t("Settings_Watch_Title"),
+            headerBackButtonDisplayMode: "minimal",
+            headerLargeTitle: false,
+          }}
+        />
+        <Stack.Screen
           name="edit_subject"
           options={{
             headerTitle: t("Settings_SubjectEdit_Title"),
