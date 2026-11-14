@@ -1,0 +1,9 @@
+{
+  "name": "papillon-android-widgets",
+  "platforms": ["android"],
+  "android": {
+    "modules": [
+      "expo.modules.papillonandroidwidgets.PapillonAndroidWidgetsModule"
+    ]
+  }
+}

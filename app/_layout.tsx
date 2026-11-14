@@ -15,6 +15,7 @@ import { useNetworkStore } from '@/stores/logs';
 import { checkConsent } from '@/utils/logger/consent';
 import { posthog } from '@/utils/logger/posthog';
 import uuid from '@/utils/uuid/uuid';
+import { useAndroidWidgetsSync } from '@/utils/widgets/useAndroidWidgetsSync';
 import { useCalendarWidgetFeed } from '@/utils/widgets/useCalendarWidgetFeed';
 import { usePapillonKitSettingsSync } from '@/utils/widgets/usePapillonKitSettingsSync';
 import { LogBox, View } from 'react-native';
@@ -37,6 +38,14 @@ LogBox.ignoreLogs([
   "DrawerLayoutAndroid is deprecated",
   "cannot calculate shadow efficiently",
 ]);
+
+// Isolate widget sync subscriptions from RootLayout so background snapshot updates
+// never re-render AppProviders or RootNavigator.
+const AndroidWidgetsSyncBridge = React.memo(() => {
+  useAndroidWidgetsSync();
+  return null;
+});
+AndroidWidgetsSyncBridge.displayName = "AndroidWidgetsSyncBridge";
 
 // From onLayout, not an effect: hiding earlier shows a blank frame.
 const hideSplashIfSignedIn = () => {
@@ -115,6 +124,7 @@ export default function RootLayout() {
 
   return (
     <AppProviders>
+      <AndroidWidgetsSyncBridge />
       <View style={{ flex: 1 }} onLayout={hideSplashIfSignedIn}>
         <RootNavigator />
       </View>

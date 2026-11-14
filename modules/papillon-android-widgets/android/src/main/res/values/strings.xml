@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="widget_next_classes_title">Prochains cours</string>
+  <string name="widget_next_classes_description">Affiche tes 2 prochains cours sur ton écran d\'accueil</string>
+  <string name="widget_next_classes_empty">Aucun cours à venir</string>
+
+  <string name="widget_latest_grades_title">Dernières notes</string>
+  <string name="widget_latest_grades_description">Affiche tes dernières notes et ta moyenne générale</string>
+  <string name="widget_latest_grades_empty">Aucune note récente</string>
+
+  <string name="widget_tasks_title">Tâches à faire</string>
+  <string name="widget_tasks_description">Affiche tes prochains devoirs à faire</string>
+  <string name="widget_tasks_empty">Aucun devoir à faire</string>
+</resources>

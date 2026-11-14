@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="papillon_widget_bg">#FFFFFF</color>
+  <color name="papillon_widget_border">#14000000</color>
+  <color name="papillon_widget_card_bg">#F4F5F7</color>
+  <color name="papillon_widget_card_border">#0F000000</color>
+  <color name="papillon_widget_pill_bg">#0F000000</color>
+  <color name="papillon_widget_text_primary">#111111</color>
+  <color name="papillon_widget_text_secondary">#666666</color>
+  <color name="papillon_widget_accent">#26B290</color>
+  <color name="papillon_widget_accent_bg">#DEF3EE</color>
+</resources>
