@@ -26,6 +26,13 @@ function TabLayoutContent() {
     ? settingsStore?.disabledTabsByAccount?.[lastUsedAccount]
     : settingsStore?.disabledTabs) || [];
 
+  const isHomeHidden = disabledTabs.includes('home');
+  const isCalendarHidden = disabledTabs.includes('calendar');
+  const isTasksHidden = disabledTabs.includes('tasks');
+  const isGradesHidden = disabledTabs.includes('grades');
+  const baseVisibleCount = [isHomeHidden, isCalendarHidden, isTasksHidden, isGradesHidden].filter(h => !h).length;
+  const isCommunicationsHidden = disabledTabs.includes('communications') || (Platform.OS === 'android' && baseVisibleCount >= 5);
+
   const iOSBottomAccessoryEnabled = settingsStore?.iOSBottomAccessoryEnabled ?? true;
   const showTabBarLabels = settingsStore?.showTabBarLabels ?? true;
   const labelsHidden = Platform.OS === 'ios' ? !showTabBarLabels : false;
@@ -61,21 +68,25 @@ function TabLayoutContent() {
         </NativeTabs.BottomAccessory>
       )}
 
-      <NativeTabs.Trigger name="index"  hidden={disabledTabs.includes('home')}>
+      <NativeTabs.Trigger name="index"  hidden={isHomeHidden}>
         <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_Home")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={IS_IOS_WITH_PADDING ? require('@/assets/icons/home_padding.png') : require('@/assets/icons/home.png')} renderingMode='template' />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="calendar" hidden={disabledTabs.includes('calendar')}>
+      <NativeTabs.Trigger name="calendar" hidden={isCalendarHidden}>
         <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_Calendar")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={IS_IOS_WITH_PADDING ? require('@/assets/icons/calendar_padding.png') : require('@/assets/icons/calendar.png')} renderingMode='template' />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="tasks" hidden={disabledTabs.includes('tasks')}>
+      <NativeTabs.Trigger name="tasks" hidden={isTasksHidden}>
         <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_Tasks")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={IS_IOS_WITH_PADDING ? require('@/assets/icons/tasks_padding.png') : require('@/assets/icons/tasks.png')} renderingMode='template' />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="grades" hidden={disabledTabs.includes('grades')}>
+      <NativeTabs.Trigger name="grades" hidden={isGradesHidden}>
         <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_Grades")}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={IS_IOS_WITH_PADDING ? require('@/assets/icons/pie_padding.png') : require('@/assets/icons/pie.png')} renderingMode='template' />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="communications" hidden={isCommunicationsHidden}>
+        <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_Communications", { defaultValue: "Messages" })}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={require('@/assets/icons/chat@3x.png')} renderingMode='template' />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

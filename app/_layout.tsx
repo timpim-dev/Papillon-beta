@@ -18,6 +18,7 @@ import uuid from '@/utils/uuid/uuid';
 import { useAndroidWidgetsSync } from '@/utils/widgets/useAndroidWidgetsSync';
 import { useCalendarWidgetFeed } from '@/utils/widgets/useCalendarWidgetFeed';
 import { usePapillonKitSettingsSync } from '@/utils/widgets/usePapillonKitSettingsSync';
+import { useNotificationsSync } from '@/utils/notifications/useNotificationsSync';
 import { LogBox, View } from 'react-native';
 
 // Polyfill Buffer
@@ -46,6 +47,12 @@ const AndroidWidgetsSyncBridge = React.memo(() => {
   return null;
 });
 AndroidWidgetsSyncBridge.displayName = "AndroidWidgetsSyncBridge";
+
+const NotificationsSyncBridge = React.memo(() => {
+  useNotificationsSync();
+  return null;
+});
+NotificationsSyncBridge.displayName = "NotificationsSyncBridge";
 
 // From onLayout, not an effect: hiding earlier shows a blank frame.
 const hideSplashIfSignedIn = () => {
@@ -125,6 +132,7 @@ export default function RootLayout() {
   return (
     <AppProviders>
       <AndroidWidgetsSyncBridge />
+      <NotificationsSyncBridge />
       <View style={{ flex: 1 }} onLayout={hideSplashIfSignedIn}>
         <RootNavigator />
       </View>

@@ -42,6 +42,12 @@ const SettingsTabs = () => {
       icon: "grades",
       enabled: !disabledTabs.includes("grades"),
     },
+    {
+      id: "communications",
+      name: t("Tab_Communications", { defaultValue: "Messages" }),
+      icon: "textbubble",
+      enabled: !disabledTabs.includes("communications"),
+    },
   ];
 
   const toggleTab = (tabId: string) => {

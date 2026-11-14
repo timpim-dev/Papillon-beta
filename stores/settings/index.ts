@@ -157,6 +157,19 @@ const defaultPersonalization: Personalization = {
   welcomeModalSeen: false,
   homeWidgets: DEFAULT_HOME_WIDGETS,
   wearConfig: DEFAULT_WEAR_CONFIG,
+  homeworkRemindersEnabled: true,
+  homeworkReminderHour: 18,
+  homeworkReminderMinute: 30,
+  homeworkReminderDaysBefore: 1,
+  communicationNotificationsEnabled: true,
+  aiAssistantEnabled: true,
+  aiFirstOpenAsked: false,
+  aiCookiesAccepted: false,
+  aiProvider: "gemini",
+  aiModel: "gemini-2.5-flash",
+  rewardsOptIn: null,
+  rewardsAppOpenCount: 0,
+  rewardsPocketBaseUrl: "https://pocketbase.felixx.dev",
 };
 
 export const useSettingsStore = create<SettingsStorage>()(

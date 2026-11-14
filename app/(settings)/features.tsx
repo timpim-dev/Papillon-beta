@@ -12,6 +12,7 @@ import { getGradeDisplayScale } from "@/utils/grades/scale";
 import Picker from "@/ui/components/Picker";
 import { useTheme } from "expo-router/react-navigation";
 import * as PapillonKit from "@getpapillon/papillonkit";
+import { requestNotificationPermission } from "@/utils/notifications/notificationsSetup";
 
 export default function SettingsFeatures() {
   const { t } = useTranslation();
@@ -23,7 +24,40 @@ export default function SettingsFeatures() {
   const iOSBottomAccessoryEnabled = settingsStore.iOSBottomAccessoryEnabled ?? true;
   const showTabBarLabels = settingsStore.showTabBarLabels ?? true;
   const liveActivitiesEnabled = settingsStore.liveActivitiesEnabled ?? true;
+  const homeworkRemindersEnabled = settingsStore.homeworkRemindersEnabled ?? true;
+  const homeworkReminderHour = settingsStore.homeworkReminderHour ?? 18;
+  const homeworkReminderMinute = settingsStore.homeworkReminderMinute ?? 30;
+  const homeworkReminderDaysBefore = settingsStore.homeworkReminderDaysBefore ?? 1;
+  const communicationNotificationsEnabled = settingsStore.communicationNotificationsEnabled ?? true;
   const selectedGradeScale = getGradeDisplayScale(settingsStore.gradesDisplayScale);
+
+  const reminderTimeOptions = useMemo(
+    () => [
+      { label: "17h00", hour: 17, minute: 0 },
+      { label: "18h00", hour: 18, minute: 0 },
+      { label: "18h30", hour: 18, minute: 30 },
+      { label: "19h30", hour: 19, minute: 30 },
+      { label: "20h30", hour: 20, minute: 30 },
+    ],
+    []
+  );
+
+  const selectedReminderTimeIndex = useMemo(() => {
+    const idx = reminderTimeOptions.findIndex(
+      opt => opt.hour === homeworkReminderHour && opt.minute === homeworkReminderMinute
+    );
+    return idx >= 0 ? idx : 2;
+  }, [homeworkReminderHour, homeworkReminderMinute, reminderTimeOptions]);
+
+  const reminderDayOptions = useMemo(
+    () => [
+      { label: "La veille", daysBefore: 1 },
+      { label: "Le jour même", daysBefore: 0 },
+    ],
+    []
+  );
+
+  const selectedReminderDayIndex = homeworkReminderDaysBefore === 0 ? 1 : 0;
 
   const gradeScaleOptions = [
     {
@@ -139,6 +173,121 @@ export default function SettingsFeatures() {
           </List.Item>
         </List.Section>
       )}
+
+      <List.Section>
+        <List.SectionTitle>
+          <List.Label>Notifications & Rappels</List.Label>
+        </List.SectionTitle>
+
+        <List.Item>
+          <List.Leading>
+            <Icon>
+              <Papicons name={"Tasks"} />
+            </Icon>
+          </List.Leading>
+          <Typography variant="title">Rappels de devoirs</Typography>
+          <Typography color="textSecondary" numberOfLines={2}>
+            Planifie une notification pour les devoirs non terminés (annulée dès qu&apos;un devoir est coché).
+          </Typography>
+          <List.Trailing>
+            <NativeSwitch
+              value={homeworkRemindersEnabled}
+              onValueChange={async (value) => {
+                if (value) {
+                  await requestNotificationPermission();
+                }
+                mutateProperty("personalization", {
+                  homeworkRemindersEnabled: value,
+                });
+              }}
+            />
+          </List.Trailing>
+        </List.Item>
+
+        {homeworkRemindersEnabled && (
+          <>
+            <List.Item>
+              <List.Leading>
+                <Icon>
+                  <Papicons name={"Clock"} />
+                </Icon>
+              </List.Leading>
+              <Typography variant="title">Heure du rappel</Typography>
+              <Typography color="textSecondary" numberOfLines={2}>
+                Horaire local de notification
+              </Typography>
+              <List.Trailing>
+                <View style={{ width: 120, alignItems: "flex-end" }}>
+                  <Picker
+                    options={reminderTimeOptions.map(opt => opt.label)}
+                    selectedIndex={selectedReminderTimeIndex}
+                    onValueChange={(index) => {
+                      const picked = reminderTimeOptions[index];
+                      if (!picked) return;
+                      mutateProperty("personalization", {
+                        homeworkReminderHour: picked.hour,
+                        homeworkReminderMinute: picked.minute,
+                      });
+                    }}
+                  />
+                </View>
+              </List.Trailing>
+            </List.Item>
+
+            <List.Item>
+              <List.Leading>
+                <Icon>
+                  <Papicons name={"Calendar"} />
+                </Icon>
+              </List.Leading>
+              <Typography variant="title">Quand prévenir</Typography>
+              <Typography color="textSecondary" numberOfLines={2}>
+                Veille de l&apos;échéance ou le jour même
+              </Typography>
+              <List.Trailing>
+                <View style={{ width: 130, alignItems: "flex-end" }}>
+                  <Picker
+                    options={reminderDayOptions.map(opt => opt.label)}
+                    selectedIndex={selectedReminderDayIndex}
+                    onValueChange={(index) => {
+                      const picked = reminderDayOptions[index];
+                      if (!picked) return;
+                      mutateProperty("personalization", {
+                        homeworkReminderDaysBefore: picked.daysBefore,
+                      });
+                    }}
+                  />
+                </View>
+              </List.Trailing>
+            </List.Item>
+          </>
+        )}
+
+        <List.Item>
+          <List.Leading>
+            <Icon>
+              <Papicons name={"Inbox"} />
+            </Icon>
+          </List.Leading>
+          <Typography variant="title">Nouvelles communications</Typography>
+          <Typography color="textSecondary" numberOfLines={2}>
+            Alerte locale lorsqu&apos;une nouvelle discussion Pronote / scolaire arrive.
+          </Typography>
+          <List.Trailing>
+            <NativeSwitch
+              value={communicationNotificationsEnabled}
+              onValueChange={async (value) => {
+                if (value) {
+                  await requestNotificationPermission();
+                }
+                mutateProperty("personalization", {
+                  communicationNotificationsEnabled: value,
+                });
+              }}
+            />
+          </List.Trailing>
+        </List.Item>
+      </List.Section>
 
       <List.Section>
         <List.SectionTitle>

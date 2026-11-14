@@ -32,6 +32,7 @@ import { AppColors } from "@/utils/colors";
 import { getGradeDisplayScale } from "@/utils/grades/scale";
 import { isGradient, useAccountWallpaper } from "@/utils/gradientWallpaper";
 import { warn } from "@/utils/logger/logger";
+import { cancelHomeworkReminder } from "@/utils/notifications/homeworkReminders";
 
 import { buildAndroidWidgetsSnapshot } from "./androidWidgetsSnapshot";
 
@@ -207,6 +208,9 @@ const useAndroidSync = () => {
           }
         }
         await updateHomeworkIsDone(toggle.id, toggle.isDone);
+        if (toggle.isDone) {
+          void cancelHomeworkReminder(toggle.id);
+        }
         updatedAny = true;
       }
       if (updatedAny) {

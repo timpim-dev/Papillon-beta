@@ -10,6 +10,7 @@ import { AndroidHeaderMenu } from "@/components/AndroidHeaderItems";
 import ModalOverhead from "@/components/ModalOverhead";
 import { deleteHomeworkFromDatabase, getHomeworkById, updateHomeworkIsDone } from "@/database/useHomework";
 import { getManager } from "@/services/shared";
+import { cancelHomeworkReminder } from "@/utils/notifications/homeworkReminders";
 import AnimatedPressable from "@/ui/components/AnimatedPressable";
 import Icon from "@/ui/components/Icon";
 import Stack from "@/ui/components/Stack";
@@ -90,6 +91,9 @@ const Task = () => {
     }
 
     await updateHomeworkIsDone(id, done);
+    if (done) {
+      void cancelHomeworkReminder(id);
+    }
     setIsDone(done);
   }
 

@@ -87,6 +87,7 @@ export default {
     android: {
       versionCode: androidVersionCode,
       package: "xyz.getpapillon.app.beta",
+      permissions: ["android.permission.POST_NOTIFICATIONS"],
       blockedPermissions: [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",

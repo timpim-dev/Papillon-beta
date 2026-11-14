@@ -107,4 +107,25 @@ export interface Personalization {
   installedVersion?: string;
   releaseNotesSeenForVersion?: string;
   welcomeModalSeen?: boolean;
+  // Homework reminders & communication alerts
+  homeworkRemindersEnabled?: boolean;
+  homeworkReminderHour?: number;
+  homeworkReminderMinute?: number;
+  homeworkReminderDaysBefore?: number;
+  communicationNotificationsEnabled?: boolean;
+  // Context-aware AI Study Assistant
+  aiAssistantEnabled?: boolean;
+  aiFirstOpenAsked?: boolean;
+  aiCookiesAccepted?: boolean;
+  aiProvider?: "gemini" | "groq" | "mistral" | "custom";
+  aiModel?: string;
+  aiCustomEndpoint?: string;
+  // Opt-in PocketBase rewards & leaderboards
+  rewardsOptIn?: boolean | null;
+  rewardsAppOpenCount?: number;
+  rewardsLastPromptVersion?: string;
+  rewardsEquippedBadge?: string | null;
+  rewardsUnlockedIds?: string[];
+  rewardsCustomThemeId?: string | null;
+  rewardsPocketBaseUrl?: string;
 }
