@@ -33,6 +33,8 @@ import { getGradeDisplayScale } from "@/utils/grades/scale";
 import { isGradient, useAccountWallpaper } from "@/utils/gradientWallpaper";
 import { warn } from "@/utils/logger/logger";
 import { cancelHomeworkReminder } from "@/utils/notifications/homeworkReminders";
+import { getRewardById } from "@/utils/rewards/rewardsCatalog";
+import { awardHomeworkPoints } from "@/utils/rewards/rewardsService";
 
 import { buildAndroidWidgetsSnapshot } from "./androidWidgetsSnapshot";
 
@@ -210,6 +212,7 @@ const useAndroidSync = () => {
         await updateHomeworkIsDone(toggle.id, toggle.isDone);
         if (toggle.isDone) {
           void cancelHomeworkReminder(toggle.id);
+          void awardHomeworkPoints(toggle.id);
         }
         updatedAny = true;
       }
@@ -252,11 +255,16 @@ const useAndroidSync = () => {
           .filter(Boolean)
           .join(" ")
           .trim() || null;
+      const equippedReward = getRewardById(personalization.rewardsEquippedBadge);
+      const equippedBadge = equippedReward
+        ? `${equippedReward.emoji} ${equippedReward.title}`
+        : null;
       const snapshot = buildAndroidWidgetsSnapshot({
         accountName,
         themeColor: activeThemeColor,
         wallpaperGradientColors: gradientColors,
         wearConfig,
+        equippedBadge,
         courses: allCourses,
         subjects,
         overallAverage: averages.student,
@@ -289,6 +297,7 @@ const useAndroidSync = () => {
     activeThemeColor,
     gradientColors,
     wearConfig,
+    personalization.rewardsEquippedBadge,
     allCourses,
     subjects,
     averages.student,

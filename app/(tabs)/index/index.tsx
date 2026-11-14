@@ -28,6 +28,8 @@ import MainTabErrorBoundary from '@/ui/components/MainTabErrorBoundary';
 import Stack from '@/ui/components/Stack';
 import Typography from '@/ui/components/Typography';
 import { Animation } from '@/ui/utils/Animation';
+import { cancelHomeworkReminder } from '@/utils/notifications/homeworkReminders';
+import { awardHomeworkPoints } from '@/utils/rewards/rewardsService';
 import { checkConsent } from '@/utils/logger/consent';
 import { warn } from '@/utils/logger/logger';
 
@@ -194,6 +196,8 @@ const HomeScreen = () => {
       setTasksRefresh(prev => prev + 1);
       if (nextDone) {
         notificationAsync(NotificationFeedbackType.Success);
+        void cancelHomeworkReminder(id);
+        void awardHomeworkPoints(id);
       }
     } catch (error) {
       warn(`Unable to toggle task from home widget: ${String(error)}`, "HomeScreen");

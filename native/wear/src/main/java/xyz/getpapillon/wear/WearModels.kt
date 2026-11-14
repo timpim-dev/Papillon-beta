@@ -115,6 +115,7 @@ data class WearSnapshot(
   val themeColor: String?,
   val wallpaperGradientColors: List<String>,
   val wearConfig: WearConfig,
+  val equippedBadge: String? = null,
   val overallAverage: String?,
   val overallAverageSubtitle: String?,
   val nextClasses: List<WearCourse>,
@@ -152,6 +153,7 @@ data class WearSnapshot(
           themeColor = root.optNullableString("themeColor"),
           wallpaperGradientColors = gradientList,
           wearConfig = WearConfig.fromJson(root.optJSONObject("wearConfig")),
+          equippedBadge = root.optNullableString("equippedBadge"),
           overallAverage = root.optNullableString("overallAverage"),
           overallAverageSubtitle = root.optNullableString("overallAverageSubtitle"),
           nextClasses = parseArray(root.optJSONArray("nextClasses")) { item ->

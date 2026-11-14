@@ -61,6 +61,7 @@ export interface AndroidWidgetsSnapshot {
   themeColor?: string | null;
   wallpaperGradientColors?: string[];
   wearConfig?: WearConfig;
+  equippedBadge?: string | null;
   nextClasses: AndroidWidgetCourse[];
   latestGrades: AndroidWidgetGrade[];
   tasks: AndroidWidgetTask[];

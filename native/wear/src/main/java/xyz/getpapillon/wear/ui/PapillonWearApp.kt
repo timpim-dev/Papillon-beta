@@ -352,6 +352,15 @@ private fun HomeScreen(
               overflow = TextOverflow.Ellipsis
             )
           }
+          snapshot?.equippedBadge?.takeIf { it.isNotBlank() }?.let { badgeLabel ->
+            Text(
+              text = badgeLabel,
+              color = brightAccent.copy(alpha = 0.92f),
+              fontSize = 10.sp,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
+            )
+          }
         }
       }
 

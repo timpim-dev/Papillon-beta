@@ -261,6 +261,16 @@ function RootNavigatorContent() {
         />
 
         <Stack.Screen
+          name="(features)/(rewards)/rewards"
+          options={{
+            headerShown: false,
+            headerTitle: "Récompenses & Amis",
+            headerTransparent: runsIOS26,
+            presentation: "modal",
+          }}
+        />
+
+        <Stack.Screen
           name="(features)/(communications)/communications"
           options={{
             headerShown: false,

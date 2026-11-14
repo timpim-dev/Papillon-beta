@@ -89,11 +89,11 @@ function TabLayoutContent() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="communications" hidden={isCommunicationsHidden}>
         <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_Communications", { defaultValue: "Messages" })}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon src={require('@/assets/icons/chat@3x.png')} renderingMode='template' />
+        <NativeTabs.Trigger.Icon src={require('@/assets/icons/chat.png')} renderingMode='template' />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="ai" hidden={isAiHidden}>
         <NativeTabs.Trigger.Label hidden={labelsHidden}>{t("Tab_AI", { defaultValue: "Assistant IA" })}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon src={require('@/assets/icons/ai@3x.png')} renderingMode='template' />
+        <NativeTabs.Trigger.Icon src={require('@/assets/icons/ai.png')} renderingMode='template' />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

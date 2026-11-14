@@ -11,6 +11,8 @@ import { Capabilities, ServiceFailure } from "@/services/shared/types";
 import { generateId } from "@/utils/generateId";
 import { error } from '@/utils/logger/logger';
 import { trackAdvancedEvent } from '@/utils/logger/analytics';
+import { cancelHomeworkReminder } from '@/utils/notifications/homeworkReminders';
+import { awardHomeworkPoints } from '@/utils/rewards/rewardsService';
 import { notificationAsync, NotificationFeedbackType } from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 
@@ -234,6 +236,8 @@ export const useHomeworkData = (weeks: number[], alert: any) => {
         scheduleRefresh();
         if (done) {
           notificationAsync(NotificationFeedbackType.Success);
+          void cancelHomeworkReminder(id);
+          void awardHomeworkPoints(id);
         }
         trackAdvancedEvent(done ? "task_ticked" : "task_unticked");
       }

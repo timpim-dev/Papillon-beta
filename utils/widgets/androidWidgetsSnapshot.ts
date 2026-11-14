@@ -29,6 +29,7 @@ export interface BuildSnapshotInput {
   themeColor?: string | null;
   wallpaperGradientColors?: string[];
   wearConfig?: WearConfig;
+  equippedBadge?: string | null;
   courses: Course[];
   subjects: Subject[];
   overallAverage?: GradeScore | null;
@@ -56,6 +57,7 @@ export function buildAndroidWidgetsSnapshot({
   themeColor = null,
   wallpaperGradientColors,
   wearConfig,
+  equippedBadge = null,
   courses,
   subjects,
   overallAverage,
@@ -198,6 +200,7 @@ export function buildAndroidWidgetsSnapshot({
     themeColor,
     ...(wallpaperGradientColors ? { wallpaperGradientColors } : {}),
     ...(wearConfig ? { wearConfig } : {}),
+    ...(equippedBadge ? { equippedBadge } : {}),
     overallAverage: formattedOverall,
     overallAverageValue,
     overallAverageScale,

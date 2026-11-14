@@ -230,6 +230,15 @@ export default function SettingsIndex() {
         router.navigate("/(settings)/ai")
       }
     },
+    {
+      icon: <Papicons name={"Crown"} />,
+      title: "Récompenses & Amis",
+      description: "Points, badges, classements & QR",
+      color: "#F59E0B",
+      onPress: () => {
+        router.navigate("/(features)/(rewards)/rewards")
+      }
+    },
     ...(MAGIC_AVAILABLE ? [{
       icon: <Papicons name={"Sparkles"} />,
       title: "Magic+",

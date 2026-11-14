@@ -78,6 +78,14 @@ const HomeHeader = () => {
       description: "Réviser sans tricher",
       route: "/(features)/ai"
     }] : []),
+    {
+      title: "Récompenses",
+      image: require("@/assets/shaded_icons/actu.png"),
+      icon: "crown",
+      color: "#F59E0B",
+      description: "Points, amis & badges",
+      route: "/(features)/(rewards)/rewards"
+    },
   ], [availableCanteenCards, absencesCount, news, currentAttendancePeriod, attendancesPeriods, attendances, aiEnabled, t]);
 
   return (
