@@ -180,6 +180,33 @@ export default function SettingsAbout() {
     },
   ];
 
+  const PapillonPlusSection = [
+    {
+      title: "Lilly (timpim-dev)",
+      description: "Créatrice de Papillon + (Widgets, Wear OS, Mises à jour)",
+      leading: (
+        <Avatar
+          size={40}
+          initials="LI"
+          imageUrl="https://avatars.githubusercontent.com/timpim-dev"
+        />
+      ),
+      onPress: () => Linking.openURL("https://github.com/timpim-dev"),
+    },
+    {
+      title: "Dépôt Papillon +",
+      description: "Code source & releases de timpim-dev/Papillon-beta",
+      leading: <Icon><Papicons name="Code" /></Icon>,
+      onPress: () => Linking.openURL("https://github.com/timpim-dev/Papillon-beta"),
+    },
+    {
+      title: "Montre, Mises à jour & Partage",
+      description: "Gérer Wear OS, vérifier les releases et partager via QR",
+      leading: <Icon><Papicons name="Sparkles" /></Icon>,
+      onPress: () => router.push("/(settings)/watch"),
+    },
+  ];
+
   const insets = useSafeAreaInsets();
 
   return (
@@ -202,6 +229,34 @@ export default function SettingsAbout() {
       </List.View>
 
       <List.Section>
+        <List.SectionTitle>
+          <List.Label>Papillon +</List.Label>
+        </List.SectionTitle>
+        {PapillonPlusSection.map((item, index) => (
+          <List.Item key={`plus-${index}`} onPress={item.onPress}>
+            <List.Leading>
+              {item.leading}
+            </List.Leading>
+
+            <Typography variant="title">{item.title}</Typography>
+
+            <Typography variant="caption" color="textSecondary">
+              {item.description}
+            </Typography>
+
+            <List.Trailing>
+              <Icon>
+                <Papicons name="ChevronRight" />
+              </Icon>
+            </List.Trailing>
+          </List.Item>
+        ))}
+      </List.Section>
+
+      <List.Section>
+        <List.SectionTitle>
+          <List.Label>Crédits — Équipe Papillon</List.Label>
+        </List.SectionTitle>
         {Team.map((item, index) => (
           <List.Item key={index} onPress={item.onPress}>
             <List.Leading>

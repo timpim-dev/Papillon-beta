@@ -177,7 +177,12 @@ export default function Welcome() {
             maxWidth: 600,
           }}
         >
-          <PapillonLogo fill={"#FFFFFF"} />
+          <Stack direction="horizontal" hAlign="center" gap={6}>
+            <PapillonLogo fill={"#FFFFFF"} />
+            <Typography color="#FFFFFF" variant="h3" weight="bold">
+              +
+            </Typography>
+          </Stack>
 
           <Typography
             color="#FFFFFF"

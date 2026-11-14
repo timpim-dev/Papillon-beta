@@ -5,7 +5,7 @@ const androidVersionCode = Math.floor(Date.now() / 1000) - 1577836800;
 
 export default {
   expo: {
-    name: "papillion beta",
+    name: "Papillon +",
     slug: "papillon",
     version: PackageJSON.version,
     orientation: "default",
