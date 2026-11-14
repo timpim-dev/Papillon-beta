@@ -4,8 +4,11 @@ import android.graphics.Color
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 data class WearCourse(
   val id: String,
@@ -218,6 +221,90 @@ object WearFormatters {
       Color.parseColor(raw.trim())
     } catch (_: Throwable) {
       fallback
+    }
+  }
+
+  /**
+   * Mirrors utils/adjustColor.ts: blends toward black when percent < 0
+   * or toward white when percent > 0.
+   */
+  fun adjustColor(raw: String?, percent: Float, fallback: Int): Int {
+    val base = parseColorInt(raw, fallback)
+    val target = if (percent < 0f) 0 else 255
+    val p = abs(percent).coerceIn(0f, 1f)
+    val r = (Color.red(base) + (target - Color.red(base)) * p).roundToInt().coerceIn(0, 255)
+    val g = (Color.green(base) + (target - Color.green(base)) * p).roundToInt().coerceIn(0, 255)
+    val b = (Color.blue(base) + (target - Color.blue(base)) * p).roundToInt().coerceIn(0, 255)
+    return Color.rgb(r, g, b)
+  }
+
+  fun dayKey(timeMs: Long): String {
+    if (timeMs <= 0L) return ""
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timeMs))
+  }
+
+  private fun calendarDayDelta(targetMs: Long): Int {
+    val today = Calendar.getInstance().apply {
+      set(Calendar.HOUR_OF_DAY, 0)
+      set(Calendar.MINUTE, 0)
+      set(Calendar.SECOND, 0)
+      set(Calendar.MILLISECOND, 0)
+    }
+    val target = Calendar.getInstance().apply {
+      timeInMillis = targetMs
+      set(Calendar.HOUR_OF_DAY, 0)
+      set(Calendar.MINUTE, 0)
+      set(Calendar.SECOND, 0)
+      set(Calendar.MILLISECOND, 0)
+    }
+    return ((target.timeInMillis - today.timeInMillis) / 86_400_000.0).roundToInt()
+  }
+
+  fun formatDaySectionHeader(timeMs: Long): String {
+    if (timeMs <= 0L) return "Date inconnue"
+    val locale = Locale.getDefault()
+    return when (calendarDayDelta(timeMs)) {
+      -1 -> "Hier"
+      0 -> "Aujourd'hui"
+      1 -> "Demain"
+      else -> SimpleDateFormat("EEEE d MMM", locale)
+        .format(Date(timeMs))
+        .replaceFirstChar { ch ->
+          if (ch.isLowerCase()) ch.titlecase(locale) else ch.toString()
+        }
+    }
+  }
+
+  fun formatShortDayChip(timeMs: Long): String {
+    if (timeMs <= 0L) return ""
+    val locale = Locale.getDefault()
+    return SimpleDateFormat("EEE d", locale)
+      .format(Date(timeMs))
+      .replace(".", "")
+      .replaceFirstChar { ch ->
+        if (ch.isLowerCase()) ch.titlecase(locale) else ch.toString()
+      }
+  }
+
+  fun formatRelativeDue(dateMs: Long): String {
+    if (dateMs <= 0L) return ""
+    return when (val days = calendarDayDelta(dateMs)) {
+      -1 -> "Hier"
+      0 -> "Aujourd'hui"
+      1 -> "Demain"
+      in 2..Int.MAX_VALUE -> "Dans $days jours"
+      else -> "Il y a ${-days} jours"
+    }
+  }
+
+  fun formatDuration(fromMs: Long, toMs: Long): String {
+    val totalMinutes = ((toMs - fromMs) / 60000L).toInt().coerceAtLeast(0)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+      hours > 0 && minutes > 0 -> "${hours}h ${minutes} min"
+      hours > 0 -> "${hours}h"
+      else -> "${minutes} min"
     }
   }
 

@@ -68,7 +68,7 @@ export function buildAndroidWidgetsSnapshot({
   const nextClasses: AndroidWidgetCourse[] = courses
     .filter(course => course.to.getTime() > now)
     .sort((a, b) => a.from.getTime() - b.from.getTime())
-    .slice(0, 10)
+    .slice(0, 24)
     .map(course => ({
       id: course.id,
       subject: getSubjectName(course.subject),

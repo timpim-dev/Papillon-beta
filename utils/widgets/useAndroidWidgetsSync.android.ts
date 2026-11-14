@@ -22,9 +22,14 @@ import { Balance } from "@/services/shared/balance";
 import { Capabilities } from "@/services/shared/types";
 import { useAccountStore } from "@/stores/account";
 import { Services } from "@/stores/account/types";
-import { resolveWearConfig, useSettingsStore } from "@/stores/settings";
+import {
+  DEFAULT_MATERIAL_YOU_ENABLED,
+  resolveWearConfig,
+  useSettingsStore,
+} from "@/stores/settings";
+import { AppColors } from "@/utils/colors";
 import { getGradeDisplayScale } from "@/utils/grades/scale";
-import { useAccountWallpaper } from "@/utils/gradientWallpaper";
+import { isGradient, useAccountWallpaper } from "@/utils/gradientWallpaper";
 import { warn } from "@/utils/logger/logger";
 
 import { buildAndroidWidgetsSnapshot } from "./androidWidgetsSnapshot";
@@ -34,7 +39,7 @@ const WEAR_TOGGLE_POLL_MS = 3000;
 
 const useAndroidSync = () => {
   const theme = useTheme();
-  const { wallpaperGradient } = useAccountWallpaper();
+  const { wallpaper, wallpaperGradient } = useAccountWallpaper();
   const accounts = useAccountStore(state => state.accounts);
   const lastUsedAccount = useAccountStore(state => state.lastUsedAccount);
   const account = useMemo(
@@ -49,6 +54,38 @@ const useAndroidSync = () => {
     () => resolveWearConfig(personalization),
     [personalization]
   );
+  const activeThemeColor = useMemo(() => {
+    const selectedColor =
+      AppColors.find(c => c.colorEnum === personalization.colorSelected) ??
+      AppColors[0];
+    const useMaterialYou =
+      personalization.useMaterialYou ?? DEFAULT_MATERIAL_YOU_ENABLED;
+    if (useMaterialYou) {
+      const themeColors = theme.colors as typeof theme.colors & {
+        tint?: unknown;
+      };
+      if (typeof themeColors.tint === "string" && themeColors.tint.length > 0) {
+        return themeColors.tint;
+      }
+      if (
+        typeof theme.colors.primary === "string" &&
+        theme.colors.primary.length > 0
+      ) {
+        return theme.colors.primary;
+      }
+    }
+    return selectedColor.mainColor;
+  }, [
+    personalization.colorSelected,
+    personalization.useMaterialYou,
+    theme.colors,
+  ]);
+  const gradientColors = useMemo(() => {
+    if (isGradient(wallpaper) && wallpaperGradient?.colors?.length) {
+      return wallpaperGradient.colors;
+    }
+    return [activeThemeColor];
+  }, [activeThemeColor, wallpaper, wallpaperGradient?.colors]);
 
   const { upcomingDays, loading: timetableLoading } = useTimetableWidgetData({
     showCancelled: true,
@@ -210,11 +247,8 @@ const useAndroidSync = () => {
           .trim() || null;
       const snapshot = buildAndroidWidgetsSnapshot({
         accountName,
-        themeColor:
-          typeof theme.colors.primary === "string"
-            ? theme.colors.primary
-            : null,
-        wallpaperGradientColors: wallpaperGradient?.colors,
+        themeColor: activeThemeColor,
+        wallpaperGradientColors: gradientColors,
         wearConfig,
         courses: allCourses,
         subjects,
@@ -244,8 +278,8 @@ const useAndroidSync = () => {
   }, [
     timetableLoading,
     account,
-    theme.colors.primary,
-    wallpaperGradient?.colors,
+    activeThemeColor,
+    gradientColors,
     wearConfig,
     allCourses,
     subjects,

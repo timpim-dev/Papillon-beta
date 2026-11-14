@@ -5,24 +5,31 @@ import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.ScalingLazyListState
 import androidx.wear.compose.foundation.lazy.items
 import androidx.wear.compose.foundation.lazy.itemsIndexed
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
@@ -49,6 +57,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.PositionIndicator
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Switch
+import androidx.wear.compose.material.SwitchDefaults
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChip
@@ -60,15 +69,17 @@ import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import xyz.getpapillon.wear.QrCodeGenerator
 import xyz.getpapillon.wear.WearCanteenCard
+import xyz.getpapillon.wear.WearCourse
 import xyz.getpapillon.wear.WearFormatters
 import xyz.getpapillon.wear.WearLocalPreferences
 import xyz.getpapillon.wear.WearRepository
 import xyz.getpapillon.wear.WearSnapshot
 import xyz.getpapillon.wear.WearTask
 
-private val DefaultAccent = Color(0xFF6D8BFF)
-private val DefaultSecondary = Color(0xFF4AD991)
-private val SurfaceDark = Color(0xFF171A21)
+private val DefaultAccent = Color(0xFF29947A)
+private val CardDark = Color(0xFF141416)
+private val CardDarkElevated = Color(0xFF1E1E22)
+private val TextSecondaryDark = Color(0xFF98989F)
 
 @Composable
 fun PapillonWearApp() {
@@ -91,6 +102,13 @@ fun PapillonWearApp() {
       DefaultAccent
     }
   }
+  val brightAccent = remember(snapshot?.themeColor, accentColor, syncGradient) {
+    if (syncGradient && !snapshot?.themeColor.isNullOrBlank()) {
+      Color(WearFormatters.adjustColor(snapshot?.themeColor, 0.25f, accentColor.toArgb()))
+    } else {
+      accentColor
+    }
+  }
   val gradientStops = remember(snapshot?.wallpaperGradientColors, accentColor, syncGradient) {
     if (!syncGradient) {
       listOf(Color.Black, Color.Black)
@@ -101,16 +119,18 @@ fun PapillonWearApp() {
       }
       when {
         parsed.size >= 2 -> listOf(
-          parsed[0].copy(alpha = 0.44f),
-          parsed[1].copy(alpha = 0.18f),
+          parsed[0].copy(alpha = 0.50f),
+          parsed[1].copy(alpha = 0.24f),
           Color.Black
         )
         parsed.size == 1 -> listOf(
-          parsed[0].copy(alpha = 0.42f),
+          parsed[0].copy(alpha = 0.48f),
+          parsed[0].copy(alpha = 0.14f),
           Color.Black
         )
         else -> listOf(
-          accentColor.copy(alpha = 0.34f),
+          accentColor.copy(alpha = 0.42f),
+          accentColor.copy(alpha = 0.12f),
           Color.Black
         )
       }
@@ -119,117 +139,160 @@ fun PapillonWearApp() {
 
   val colors = Colors(
     primary = accentColor,
-    primaryVariant = accentColor.copy(alpha = 0.78f),
-    secondary = DefaultSecondary,
-    secondaryVariant = DefaultSecondary.copy(alpha = 0.78f),
+    primaryVariant = brightAccent,
+    secondary = brightAccent,
+    secondaryVariant = accentColor,
     background = Color.Black,
-    surface = SurfaceDark,
+    surface = CardDark,
     error = Color(0xFFFF6B6B),
     onPrimary = Color.Black,
     onSecondary = Color.Black,
     onBackground = Color.White,
     onSurface = Color.White,
-    onSurfaceVariant = Color(0xFFB4B9C6),
+    onSurfaceVariant = TextSecondaryDark,
     onError = Color.Black
   )
 
   MaterialTheme(colors = colors) {
     val navController = rememberSwipeDismissableNavController()
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .background(Brush.verticalGradient(gradientStops))
+    SwipeDismissableNavHost(
+      navController = navController,
+      startDestination = "home"
     ) {
-      SwipeDismissableNavHost(
-        navController = navController,
-        startDestination = "home"
-      ) {
-        composable("home") {
-          HomeScreen(
-            snapshot = snapshot,
-            prefs = localPrefs,
-            isSyncing = isSyncing,
-            accentColor = accentColor,
-            hasPendingUpdate = pendingApkPath != null,
-            onNavigate = { route -> navController.navigate(route) },
-            onSync = { WearRepository.requestPhoneSync(context) },
-            onInstallUpdate = { WearRepository.installPendingApkUpdate(context) }
-          )
-        }
-        composable("classes") {
-          TimetableScreen(snapshot = snapshot, accentColor = accentColor)
-        }
-        composable("tasks") {
-          TasksScreen(
-            snapshot = snapshot,
-            accentColor = accentColor,
-            onOpenTask = { task ->
-              navController.navigate("task_detail/${encodeId(task.id)}")
+      composable("home") {
+        HomeScreen(
+          snapshot = snapshot,
+          prefs = localPrefs,
+          isSyncing = isSyncing,
+          accentColor = accentColor,
+          brightAccent = brightAccent,
+          gradientStops = gradientStops,
+          hasPendingUpdate = pendingApkPath != null,
+          onNavigate = { route -> navController.navigate(route) },
+          onSync = { WearRepository.requestPhoneSync(context) },
+          onInstallUpdate = { WearRepository.installPendingApkUpdate(context) }
+        )
+      }
+      composable("classes") {
+        TimetableScreen(
+          snapshot = snapshot,
+          accentColor = brightAccent,
+          gradientStops = gradientStops
+        )
+      }
+      composable("tasks") {
+        TasksScreen(
+          snapshot = snapshot,
+          accentColor = brightAccent,
+          gradientStops = gradientStops,
+          onOpenTask = { task ->
+            navController.navigate("task_detail/${encodeId(task.id)}")
+          },
+          onToggleDone = { task ->
+            WearRepository.toggleTaskDone(context, task.id, !task.isDone)
+          }
+        )
+      }
+      composable("task_detail/{taskKey}") { entry ->
+        val key = entry.arguments?.getString("taskKey") ?: ""
+        val taskId = decodeId(key)
+        val task = snapshot?.tasks?.firstOrNull { it.id == taskId }
+        TaskDetailScreen(
+          task = task,
+          accentColor = brightAccent,
+          gradientStops = gradientStops,
+          onToggleDone = { current ->
+            WearRepository.toggleTaskDone(context, current.id, !current.isDone)
+          }
+        )
+      }
+      composable("grades") {
+        GradesScreen(
+          snapshot = snapshot,
+          accentColor = brightAccent,
+          gradientStops = gradientStops
+        )
+      }
+      composable("canteen") {
+        CanteenScreen(
+          snapshot = snapshot,
+          accentColor = brightAccent,
+          gradientStops = gradientStops,
+          onOpenQr = { index -> navController.navigate("canteen_qr/$index") }
+        )
+      }
+      composable("canteen_qr/{index}") { entry ->
+        val idx = entry.arguments?.getString("index")?.toIntOrNull() ?: 0
+        val card = snapshot?.canteenCards?.getOrNull(idx)
+        CanteenQrScreen(
+          card = card,
+          accentColor = brightAccent,
+          gradientStops = gradientStops
+        )
+      }
+      composable("customize") {
+        CustomizeScreen(
+          snapshot = snapshot,
+          prefs = localPrefs,
+          accentColor = accentColor,
+          brightAccent = brightAccent,
+          gradientStops = gradientStops,
+          onToggleGradient = { enabled ->
+            WearRepository.updateLocalPreferences(context) {
+              it.copy(useCustomOverride = true, syncThemeGradient = enabled)
             }
-          )
-        }
-        composable("task_detail/{taskKey}") { entry ->
-          val key = entry.arguments?.getString("taskKey") ?: ""
-          val taskId = decodeId(key)
-          val task = snapshot?.tasks?.firstOrNull { it.id == taskId }
-          TaskDetailScreen(
-            task = task,
-            accentColor = accentColor,
-            onToggleDone = { current ->
-              WearRepository.toggleTaskDone(context, current.id, !current.isDone)
+          },
+          onToggleSection = { sectionId, enabled ->
+            WearRepository.updateLocalPreferences(context) { current ->
+              val updated = if (enabled) {
+                (current.enabledSections + sectionId).distinct()
+              } else {
+                current.enabledSections.filterNot { it == sectionId }
+              }
+              current.copy(useCustomOverride = true, enabledSections = updated)
             }
-          )
-        }
-        composable("grades") {
-          GradesScreen(snapshot = snapshot, accentColor = accentColor)
-        }
-        composable("canteen") {
-          CanteenScreen(
-            snapshot = snapshot,
-            accentColor = accentColor,
-            onOpenQr = { index -> navController.navigate("canteen_qr/$index") }
-          )
-        }
-        composable("canteen_qr/{index}") { entry ->
-          val idx = entry.arguments?.getString("index")?.toIntOrNull() ?: 0
-          val card = snapshot?.canteenCards?.getOrNull(idx)
-          CanteenQrScreen(card = card)
-        }
-        composable("customize") {
-          CustomizeScreen(
-            snapshot = snapshot,
-            prefs = localPrefs,
-            accentColor = accentColor,
-            onToggleGradient = { enabled ->
-              WearRepository.updateLocalPreferences(context) {
-                it.copy(useCustomOverride = true, syncThemeGradient = enabled)
-              }
-            },
-            onToggleSection = { sectionId, enabled ->
-              WearRepository.updateLocalPreferences(context) { current ->
-                val updated = if (enabled) {
-                  (current.enabledSections + sectionId).distinct()
-                } else {
-                  current.enabledSections.filterNot { it == sectionId }
-                }
-                current.copy(useCustomOverride = true, enabledSections = updated)
-              }
-            },
-            onSelectComplicationMetric = { metric ->
-              WearRepository.updateLocalPreferences(context) {
-                it.copy(useCustomOverride = true, complicationMetric = metric)
-              }
-            },
-            onResetPhoneConfig = {
-              WearRepository.resetToPhoneConfig(context)
+          },
+          onSelectComplicationMetric = { metric ->
+            WearRepository.updateLocalPreferences(context) {
+              it.copy(useCustomOverride = true, complicationMetric = metric)
             }
-          )
-        }
-        composable("share") {
-          ShareQrScreen(accentColor = accentColor)
-        }
+          },
+          onResetPhoneConfig = {
+            WearRepository.resetToPhoneConfig(context)
+          }
+        )
+      }
+      composable("share") {
+        ShareQrScreen(
+          accentColor = brightAccent,
+          gradientStops = gradientStops
+        )
       }
     }
+  }
+}
+
+@Composable
+private fun WearScreenContainer(
+  gradientStops: List<Color>,
+  listState: ScalingLazyListState? = null,
+  content: @Composable () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(Brush.verticalGradient(gradientStops))
+  ) {
+    Scaffold(
+      timeText = { TimeText() },
+      vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
+      positionIndicator = {
+        if (listState != null) {
+          PositionIndicator(scalingLazyListState = listState)
+        }
+      },
+      content = content
+    )
   }
 }
 
@@ -239,6 +302,8 @@ private fun HomeScreen(
   prefs: WearLocalPreferences,
   isSyncing: Boolean,
   accentColor: Color,
+  brightAccent: Color,
+  gradientStops: List<Color>,
   hasPendingUpdate: Boolean,
   onNavigate: (String) -> Unit,
   onSync: () -> Unit,
@@ -251,11 +316,7 @@ private fun HomeScreen(
   val gradesCount = snapshot?.latestGrades?.size ?: 0
   val cardsCount = snapshot?.canteenCards?.size ?: 0
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -269,7 +330,7 @@ private fun HomeScreen(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(
             text = "Papillon +",
-            color = accentColor,
+            color = brightAccent,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
           )
@@ -295,7 +356,7 @@ private fun HomeScreen(
             onClick = onInstallUpdate,
             modifier = Modifier.fillMaxWidth(),
             colors = ChipDefaults.primaryChipColors(
-              backgroundColor = accentColor,
+              backgroundColor = brightAccent,
               contentColor = Color.Black
             ),
             label = {
@@ -315,20 +376,7 @@ private fun HomeScreen(
 
       if (snapshot == null) {
         item {
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .clip(RoundedCornerShape(16.dp))
-              .background(SurfaceDark.copy(alpha = 0.85f))
-              .padding(12.dp)
-          ) {
-            Text(
-              text = "Ouvre Papillon + sur ton téléphone pour synchroniser",
-              color = Color.White.copy(alpha = 0.82f),
-              fontSize = 12.sp,
-              textAlign = TextAlign.Center
-            )
-          }
+          EmptyCard("Ouvre Papillon + sur ton téléphone pour synchroniser")
         }
       }
 
@@ -337,10 +385,10 @@ private fun HomeScreen(
           "classes" -> HomeMenuChip(
             title = "Emploi du temps",
             subtitle = snapshot?.nextClasses?.firstOrNull()?.let {
-              "${it.emoji ?: "📚"} ${it.subject} • ${WearFormatters.formatHour(it.from)}"
+              "${it.subject} • ${WearFormatters.formatHour(it.from)}"
             } ?: "$nextClassesCount cours",
             badgeEmoji = "📅",
-            accentColor = accentColor,
+            accentColor = brightAccent,
             onClick = { onNavigate("classes") }
           )
           "tasks" -> HomeMenuChip(
@@ -351,7 +399,7 @@ private fun HomeScreen(
               "$pendingTasksCount à faire"
             },
             badgeEmoji = "✅",
-            accentColor = accentColor,
+            accentColor = brightAccent,
             onClick = { onNavigate("tasks") }
           )
           "grades" -> HomeMenuChip(
@@ -360,7 +408,7 @@ private fun HomeScreen(
               "${it.subject} : ${it.score}${it.outOf}"
             } ?: "$gradesCount notes",
             badgeEmoji = "📊",
-            accentColor = accentColor,
+            accentColor = brightAccent,
             onClick = { onNavigate("grades") }
           )
           "canteen" -> HomeMenuChip(
@@ -368,7 +416,7 @@ private fun HomeScreen(
             subtitle = snapshot?.canteenCards?.firstOrNull()?.balanceText
               ?: "$cardsCount carte(s)",
             badgeEmoji = "🍽️",
-            accentColor = accentColor,
+            accentColor = brightAccent,
             onClick = { onNavigate("canteen") }
           )
         }
@@ -379,7 +427,7 @@ private fun HomeScreen(
           title = "Personnaliser",
           subtitle = "Sections, thème & cadran",
           badgeEmoji = "🎨",
-          accentColor = accentColor,
+          accentColor = brightAccent,
           onClick = { onNavigate("customize") }
         )
       }
@@ -389,7 +437,7 @@ private fun HomeScreen(
           title = "Partager Papillon +",
           subtitle = "QR code téléchargement",
           badgeEmoji = "📲",
-          accentColor = accentColor,
+          accentColor = brightAccent,
           onClick = { onNavigate("share") }
         )
       }
@@ -399,7 +447,7 @@ private fun HomeScreen(
           onClick = onSync,
           modifier = Modifier.fillMaxWidth(),
           colors = ChipDefaults.secondaryChipColors(
-            backgroundColor = accentColor.copy(alpha = 0.22f),
+            backgroundColor = accentColor.copy(alpha = 0.24f),
             contentColor = Color.White
           ),
           label = {
@@ -408,7 +456,7 @@ private fun HomeScreen(
                 CircularProgressIndicator(
                   modifier = Modifier.size(16.dp),
                   strokeWidth = 2.dp,
-                  indicatorColor = accentColor
+                  indicatorColor = brightAccent
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Synchronisation...", maxLines = 1)
@@ -437,16 +485,16 @@ private fun HomeMenuChip(
     onClick = onClick,
     modifier = Modifier.fillMaxWidth(),
     colors = ChipDefaults.secondaryChipColors(
-      backgroundColor = SurfaceDark.copy(alpha = 0.9f),
+      backgroundColor = CardDark.copy(alpha = 0.92f),
       contentColor = Color.White,
-      secondaryContentColor = Color.White.copy(alpha = 0.72f)
+      secondaryContentColor = TextSecondaryDark
     ),
     icon = {
       Box(
         modifier = Modifier
           .size(28.dp)
           .clip(CircleShape)
-          .background(accentColor.copy(alpha = 0.22f)),
+          .background(accentColor.copy(alpha = 0.20f)),
         contentAlignment = Alignment.Center
       ) {
         Text(text = badgeEmoji, fontSize = 13.sp)
@@ -471,15 +519,40 @@ private fun HomeMenuChip(
 }
 
 @Composable
-private fun TimetableScreen(snapshot: WearSnapshot?, accentColor: Color) {
+private fun TimetableScreen(
+  snapshot: WearSnapshot?,
+  accentColor: Color,
+  gradientStops: List<Color>
+) {
   val listState = rememberScalingLazyListState()
-  val courses = snapshot?.nextClasses.orEmpty()
+  val now = System.currentTimeMillis()
+  val allSorted = remember(snapshot?.nextClasses) {
+    val sorted = snapshot?.nextClasses.orEmpty().sortedBy { it.from }
+    val upcoming = sorted.filter { it.to > now }
+    if (upcoming.isNotEmpty()) upcoming else sorted
+  }
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  val dayGroups = remember(allSorted) {
+    allSorted
+      .groupBy { WearFormatters.dayKey(it.from) }
+      .entries
+      .filter { it.key.isNotEmpty() }
+      .toList()
+  }
+
+  var selectedDayKey by remember { mutableStateOf<String?>(null) }
+  val activeDayKey = if (selectedDayKey != null && dayGroups.any { it.key == selectedDayKey }) {
+    selectedDayKey
+  } else {
+    null
+  }
+  val visibleGroups = if (activeDayKey != null) {
+    dayGroups.filter { it.key == activeDayKey }
+  } else {
+    dayGroups
+  }
+
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -488,63 +561,223 @@ private fun TimetableScreen(snapshot: WearSnapshot?, accentColor: Color) {
       verticalArrangement = Arrangement.spacedBy(6.dp),
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
-      item {
+      item(key = "timetable_header") {
         ScreenHeader(title = "Emploi du temps", accentColor = accentColor)
       }
-      if (courses.isEmpty()) {
-        item { EmptyCard("Aucun cours à venir") }
-      } else {
-        items(courses, key = { it.id }) { course ->
-          val courseAccent = Color(WearFormatters.parseColorInt(course.color, accentColor.toArgb()))
-          Box(
+
+      if (dayGroups.size > 1) {
+        item(key = "timetable_day_filters") {
+          Row(
             modifier = Modifier
               .fillMaxWidth()
-              .clip(RoundedCornerShape(16.dp))
-              .background(courseAccent.copy(alpha = 0.16f))
-              .border(1.dp, courseAccent.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
-              .padding(10.dp)
+              .horizontalScroll(rememberScrollState())
+              .padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
           ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-              ) {
-                Text(
-                  text = "${course.emoji ?: "📚"} ${course.subject}",
-                  color = Color.White,
-                  fontSize = 13.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  textDecoration = if (course.isCanceled) TextDecoration.LineThrough else null,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                  modifier = Modifier.weight(1f)
-                )
-              }
-              val timeStr = WearFormatters.formatTimeRange(course.from, course.to)
-              val roomPart = course.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
-              Text(
-                text = if (course.isCanceled) "Annulé • $timeStr" else "$timeStr$roomPart",
-                color = if (course.isCanceled) Color(0xFFFF7B7B) else courseAccent,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            DayFilterPill(
+              label = "Tous",
+              selected = activeDayKey == null,
+              accentColor = accentColor,
+              onClick = { selectedDayKey = null }
+            )
+            dayGroups.forEach { (dayKey, groupCourses) ->
+              val chipLabel = WearFormatters.formatShortDayChip(groupCourses.first().from)
+              DayFilterPill(
+                label = chipLabel,
+                selected = activeDayKey == dayKey,
+                accentColor = accentColor,
+                onClick = {
+                  selectedDayKey = if (activeDayKey == dayKey) null else dayKey
+                }
               )
-              course.teacher?.takeIf { it.isNotBlank() }?.let { teacher ->
-                Text(
-                  text = teacher,
-                  color = Color.White.copy(alpha = 0.65f),
-                  fontSize = 10.sp,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
             }
           }
         }
       }
-      item { Spacer(modifier = Modifier.height(14.dp)) }
+
+      if (visibleGroups.isEmpty()) {
+        item(key = "timetable_empty") { EmptyCard("Aucun cours à venir") }
+      } else {
+        visibleGroups.forEach { (dayKey, dayCourses) ->
+          item(key = "day_header_$dayKey") {
+            DaySectionHeader(
+              title = WearFormatters.formatDaySectionHeader(dayCourses.first().from),
+              accentColor = accentColor
+            )
+          }
+
+          dayCourses.forEachIndexed { idx, course ->
+            if (idx > 0) {
+              val gapMs = course.from - dayCourses[idx - 1].to
+              if (gapMs >= 20 * 60_000L) {
+                item(key = "break_${dayKey}_$idx") {
+                  BreakSeparatorPill(durationMs = gapMs)
+                }
+              }
+            }
+            item(key = "course_${dayKey}_${course.id}_${course.from}_$idx") {
+              WearCourseCard(course = course, fallbackAccent = accentColor)
+            }
+          }
+        }
+      }
+
+      item(key = "timetable_bottom_spacer") { Spacer(modifier = Modifier.height(14.dp)) }
+    }
+  }
+}
+
+@Composable
+private fun DayFilterPill(
+  label: String,
+  selected: Boolean,
+  accentColor: Color,
+  onClick: () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .clip(RoundedCornerShape(50))
+      .background(if (selected) accentColor else CardDarkElevated)
+      .clickable(onClick = onClick)
+      .padding(horizontal = 10.dp, vertical = 5.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Text(
+      text = label,
+      color = if (selected) Color.Black else Color.White,
+      fontSize = 11.sp,
+      fontWeight = FontWeight.Bold,
+      maxLines = 1
+    )
+  }
+}
+
+@Composable
+private fun DaySectionHeader(title: String, accentColor: Color) {
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(horizontal = 4.dp, vertical = 2.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Text(
+      text = title,
+      color = accentColor,
+      fontSize = 11.5.sp,
+      fontWeight = FontWeight.Bold,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis
+    )
+  }
+}
+
+@Composable
+private fun BreakSeparatorPill(durationMs: Long) {
+  val totalMinutes = (durationMs / 60_000L).toInt().coerceAtLeast(1)
+  val hours = totalMinutes / 60
+  val mins = totalMinutes % 60
+  val label = when {
+    hours > 0 && mins > 0 -> "Pause · ${hours}h ${mins} min"
+    hours > 0 -> "Pause · ${hours}h"
+    else -> "Pause · ${mins} min"
+  }
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(14.dp))
+      .background(CardDarkElevated.copy(alpha = 0.9f))
+      .padding(horizontal = 10.dp, vertical = 6.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Text(
+      text = label,
+      color = TextSecondaryDark,
+      fontSize = 10.5.sp,
+      fontWeight = FontWeight.Medium,
+      maxLines = 1
+    )
+  }
+}
+
+@Composable
+private fun WearCourseCard(course: WearCourse, fallbackAccent: Color) {
+  val fallbackInt = fallbackAccent.toArgb()
+  val bgColor = if (course.isCanceled) {
+    Color(0xFF231214)
+  } else {
+    Color(WearFormatters.adjustColor(course.color, -0.70f, fallbackInt))
+  }
+  val textColor = if (course.isCanceled) {
+    Color(0xFFE57373)
+  } else {
+    Color(WearFormatters.adjustColor(course.color, 0.10f, fallbackInt))
+  }
+
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(IntrinsicSize.Min)
+      .clip(RoundedCornerShape(16.dp))
+      .background(bgColor)
+      .padding(horizontal = 10.dp, vertical = 8.dp),
+    verticalAlignment = Alignment.CenterVertically
+  ) {
+    Box(
+      modifier = Modifier
+        .width(4.dp)
+        .fillMaxHeight()
+        .clip(RoundedCornerShape(4.dp))
+        .background(textColor)
+    )
+    Spacer(modifier = Modifier.width(8.dp))
+    Column(
+      modifier = Modifier.weight(1f),
+      verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+      val timeRange = WearFormatters.formatTimeRange(course.from, course.to)
+      val duration = WearFormatters.formatDuration(course.from, course.to)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          text = if (course.isCanceled) "Annulé · $timeRange" else timeRange,
+          color = textColor.copy(alpha = 0.9f),
+          fontSize = 10.5.sp,
+          fontWeight = FontWeight.Bold,
+          maxLines = 1
+        )
+        Text(
+          text = duration,
+          color = textColor.copy(alpha = 0.78f),
+          fontSize = 10.sp,
+          maxLines = 1
+        )
+      }
+      // Matches in-app Course.tsx: no emoji prefix in course title
+      Text(
+        text = course.subject,
+        color = textColor,
+        fontSize = 12.5.sp,
+        fontWeight = FontWeight.Bold,
+        textDecoration = if (course.isCanceled) TextDecoration.LineThrough else null,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+      )
+      val details = listOfNotNull(
+        course.room?.takeIf { it.isNotBlank() },
+        course.teacher?.takeIf { it.isNotBlank() }
+      ).joinToString("  |  ")
+      if (details.isNotEmpty()) {
+        Text(
+          text = details,
+          color = textColor.copy(alpha = 0.85f),
+          fontSize = 10.5.sp,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis
+        )
+      }
     }
   }
 }
@@ -553,16 +786,23 @@ private fun TimetableScreen(snapshot: WearSnapshot?, accentColor: Color) {
 private fun TasksScreen(
   snapshot: WearSnapshot?,
   accentColor: Color,
-  onOpenTask: (WearTask) -> Unit
+  gradientStops: List<Color>,
+  onOpenTask: (WearTask) -> Unit,
+  onToggleDone: (WearTask) -> Unit
 ) {
   val listState = rememberScalingLazyListState()
-  val tasks = snapshot?.tasks.orEmpty()
+  val allTasks = snapshot?.tasks.orEmpty()
+  val pendingByDay = remember(allTasks) {
+    allTasks
+      .filter { !it.isDone }
+      .sortedBy { it.dueDate }
+      .groupBy { WearFormatters.dayKey(it.dueDate) }
+  }
+  val completedTasks = remember(allTasks) {
+    allTasks.filter { it.isDone }.sortedBy { it.dueDate }
+  }
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -571,64 +811,125 @@ private fun TasksScreen(
       verticalArrangement = Arrangement.spacedBy(6.dp),
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
-      item {
+      item(key = "tasks_header") {
         ScreenHeader(title = "Devoirs", accentColor = accentColor)
       }
-      if (tasks.isEmpty()) {
-        item { EmptyCard("Aucun devoir à faire") }
+
+      if (allTasks.isEmpty()) {
+        item(key = "tasks_empty") { EmptyCard("Aucun devoir à faire") }
       } else {
-        items(tasks, key = { it.id }) { task ->
-          val taskAccent = Color(WearFormatters.parseColorInt(task.color, accentColor.toArgb()))
-          Chip(
-            onClick = { onOpenTask(task) },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ChipDefaults.secondaryChipColors(
-              backgroundColor = taskAccent.copy(alpha = if (task.isDone) 0.08f else 0.18f),
-              contentColor = Color.White,
-              secondaryContentColor = Color.White.copy(alpha = 0.72f)
-            ),
-            icon = {
-              Box(
-                modifier = Modifier
-                  .size(26.dp)
-                  .clip(CircleShape)
-                  .background(
-                    if (task.isDone) DefaultSecondary.copy(alpha = 0.25f)
-                    else taskAccent.copy(alpha = 0.28f)
-                  ),
-                contentAlignment = Alignment.Center
-              ) {
-                Text(
-                  text = if (task.isDone) "✓" else (task.emoji ?: "📝"),
-                  color = if (task.isDone) DefaultSecondary else Color.White,
-                  fontSize = 12.sp,
-                  fontWeight = FontWeight.Bold
-                )
-              }
-            },
-            label = {
-              Text(
-                text = task.subject,
-                fontWeight = FontWeight.SemiBold,
-                textDecoration = if (task.isDone) TextDecoration.LineThrough else null,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-              )
-            },
-            secondaryLabel = {
-              val date = WearFormatters.formatShortDate(task.dueDate)
-              val preview = task.description.ifBlank { date }
-              Text(
-                text = if (date.isNotBlank() && task.description.isNotBlank()) "$date • $preview" else preview,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-              )
-            }
-          )
+        pendingByDay.entries.forEachIndexed { groupIdx, (dayKey, dayTasks) ->
+          val sectionTitle = WearFormatters.formatDaySectionHeader(dayTasks.first().dueDate)
+          item(key = "task_day_${dayKey}_$groupIdx") {
+            DaySectionHeader(title = sectionTitle, accentColor = accentColor)
+          }
+          itemsIndexed(dayTasks, key = { idx, t -> "task_${dayKey}_${t.id}_$idx" }) { _, task ->
+            WearTaskCard(
+              task = task,
+              fallbackAccent = accentColor,
+              onClick = { onOpenTask(task) },
+              onToggleDone = { onToggleDone(task) }
+            )
+          }
+        }
+
+        if (completedTasks.isNotEmpty()) {
+          item(key = "tasks_done_header") {
+            DaySectionHeader(
+              title = "Terminés",
+              accentColor = Color.White.copy(alpha = 0.55f)
+            )
+          }
+          itemsIndexed(completedTasks, key = { idx, t -> "task_done_${t.id}_$idx" }) { _, task ->
+            WearTaskCard(
+              task = task,
+              fallbackAccent = accentColor,
+              onClick = { onOpenTask(task) },
+              onToggleDone = { onToggleDone(task) }
+            )
+          }
         }
       }
-      item { Spacer(modifier = Modifier.height(14.dp)) }
+
+      item(key = "tasks_bottom_spacer") { Spacer(modifier = Modifier.height(14.dp)) }
     }
+  }
+}
+
+@Composable
+private fun WearTaskCard(
+  task: WearTask,
+  fallbackAccent: Color,
+  onClick: () -> Unit,
+  onToggleDone: () -> Unit
+) {
+  val subjectColor = Color(
+    WearFormatters.adjustColor(task.color, 0.30f, fallbackAccent.toArgb())
+  )
+  val checkFill = if (task.isDone) {
+    fallbackAccent.copy(alpha = 0.24f)
+  } else {
+    CardDarkElevated
+  }
+  val checkTextColor = if (task.isDone) fallbackAccent else TextSecondaryDark
+
+  Column(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(18.dp))
+      .background(CardDark.copy(alpha = if (task.isDone) 0.65f else 0.94f))
+      .clickable(onClick = onClick)
+      .padding(horizontal = 11.dp, vertical = 9.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp)
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+      val subjectTitle = if (!task.emoji.isNullOrBlank()) {
+        "${task.emoji} ${task.subject}"
+      } else {
+        task.subject
+      }
+      Text(
+        text = subjectTitle,
+        color = subjectColor.copy(alpha = if (task.isDone) 0.6f else 1f),
+        fontSize = 11.5.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+          .weight(1f)
+          .padding(end = 6.dp)
+      )
+      Box(
+        modifier = Modifier
+          .size(22.dp)
+          .clip(CircleShape)
+          .background(checkFill)
+          .clickable(onClick = onToggleDone),
+        contentAlignment = Alignment.Center
+      ) {
+        Text(
+          text = "✓",
+          color = checkTextColor,
+          fontSize = 11.sp,
+          fontWeight = FontWeight.Bold
+        )
+      }
+    }
+
+    // Matches in-app Task.tsx: clean task description only, never date in title/preview
+    Text(
+      text = task.description.ifBlank { "Devoir à faire" },
+      color = Color.White.copy(alpha = if (task.isDone) 0.50f else 0.95f),
+      fontSize = 12.sp,
+      fontWeight = FontWeight.Medium,
+      textDecoration = if (task.isDone) TextDecoration.LineThrough else null,
+      maxLines = 2,
+      overflow = TextOverflow.Ellipsis
+    )
   }
 }
 
@@ -636,23 +937,22 @@ private fun TasksScreen(
 private fun TaskDetailScreen(
   task: WearTask?,
   accentColor: Color,
+  gradientStops: List<Color>,
   onToggleDone: (WearTask) -> Unit
 ) {
   val listState = rememberScalingLazyListState()
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     if (task == null) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         EmptyCard("Devoir introuvable")
       }
-      return@Scaffold
+      return@WearScreenContainer
     }
 
-    val taskAccent = Color(WearFormatters.parseColorInt(task.color, accentColor.toArgb()))
+    val subjectColor = Color(
+      WearFormatters.adjustColor(task.color, 0.30f, accentColor.toArgb())
+    )
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -664,17 +964,22 @@ private fun TaskDetailScreen(
       item {
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-          text = "${task.emoji ?: "📝"} ${task.subject}",
-          color = taskAccent,
+          text = if (!task.emoji.isNullOrBlank()) "${task.emoji} ${task.subject}" else task.subject,
+          color = subjectColor,
           fontSize = 14.sp,
           fontWeight = FontWeight.Bold,
           textAlign = TextAlign.Center
         )
-        val dateText = WearFormatters.formatFullDateTime(task.dueDate)
+        val relativeDue = WearFormatters.formatRelativeDue(task.dueDate)
+        val fullDate = WearFormatters.formatFullDateTime(task.dueDate)
+        val dateText = listOfNotNull(
+          relativeDue.takeIf { it.isNotBlank() },
+          fullDate.takeIf { it.isNotBlank() }
+        ).joinToString(" · ")
         if (dateText.isNotEmpty()) {
           Text(
-            text = "Pour $dateText",
-            color = Color.White.copy(alpha = 0.72f),
+            text = dateText,
+            color = TextSecondaryDark,
             fontSize = 11.sp,
             textAlign = TextAlign.Center
           )
@@ -685,10 +990,9 @@ private fun TaskDetailScreen(
         Box(
           modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceDark.copy(alpha = 0.9f))
-            .border(1.dp, taskAccent.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
-            .padding(10.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(CardDark.copy(alpha = 0.94f))
+            .padding(11.dp)
         ) {
           Text(
             text = task.description.ifBlank { "Aucune consigne détaillée" },
@@ -704,7 +1008,7 @@ private fun TaskDetailScreen(
           onClick = { onToggleDone(task) },
           modifier = Modifier.fillMaxWidth(),
           colors = ChipDefaults.primaryChipColors(
-            backgroundColor = if (task.isDone) Color(0xFF2D3342) else DefaultSecondary,
+            backgroundColor = if (task.isDone) CardDarkElevated else accentColor,
             contentColor = if (task.isDone) Color.White else Color.Black
           ),
           label = {
@@ -724,15 +1028,15 @@ private fun TaskDetailScreen(
 }
 
 @Composable
-private fun GradesScreen(snapshot: WearSnapshot?, accentColor: Color) {
+private fun GradesScreen(
+  snapshot: WearSnapshot?,
+  accentColor: Color,
+  gradientStops: List<Color>
+) {
   val listState = rememberScalingLazyListState()
   val grades = snapshot?.latestGrades.orEmpty()
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -749,15 +1053,15 @@ private fun GradesScreen(snapshot: WearSnapshot?, accentColor: Color) {
           Box(
             modifier = Modifier
               .fillMaxWidth()
-              .clip(RoundedCornerShape(14.dp))
-              .background(accentColor.copy(alpha = 0.2f))
-              .border(1.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+              .clip(RoundedCornerShape(16.dp))
+              .background(CardDark.copy(alpha = 0.92f))
+              .border(1.dp, accentColor.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
               .padding(10.dp),
             contentAlignment = Alignment.Center
           ) {
             Text(
               text = "Moyenne générale : $avg",
-              color = Color.White,
+              color = accentColor,
               fontSize = 13.sp,
               fontWeight = FontWeight.Bold
             )
@@ -767,15 +1071,18 @@ private fun GradesScreen(snapshot: WearSnapshot?, accentColor: Color) {
       if (grades.isEmpty()) {
         item { EmptyCard("Aucune note récente") }
       } else {
-        items(grades, key = { it.id }) { grade ->
-          val gradeAccent = Color(WearFormatters.parseColorInt(grade.color, accentColor.toArgb()))
+        itemsIndexed(grades, key = { idx, g -> "grade_${g.id}_$idx" }) { _, grade ->
+          val fallbackInt = accentColor.toArgb()
+          val cardBg = Color(WearFormatters.adjustColor(grade.color, -0.82f, fallbackInt))
+          val tintedText = Color(WearFormatters.adjustColor(grade.color, 0.50f, fallbackInt))
+          val secondaryText = tintedText.copy(alpha = 0.72f)
+
           Box(
             modifier = Modifier
               .fillMaxWidth()
-              .clip(RoundedCornerShape(16.dp))
-              .background(gradeAccent.copy(alpha = 0.16f))
-              .border(1.dp, gradeAccent.copy(alpha = 0.32f), RoundedCornerShape(16.dp))
-              .padding(10.dp)
+              .clip(RoundedCornerShape(18.dp))
+              .background(cardBg)
+              .padding(horizontal = 11.dp, vertical = 9.dp)
           ) {
             Row(
               modifier = Modifier.fillMaxWidth(),
@@ -783,25 +1090,32 @@ private fun GradesScreen(snapshot: WearSnapshot?, accentColor: Color) {
               verticalAlignment = Alignment.CenterVertically
             ) {
               Column(modifier = Modifier.weight(1f).padding(end = 6.dp)) {
+                val emojiPrefix = if (!grade.emoji.isNullOrBlank()) "${grade.emoji} " else ""
+                val dateLabel = WearFormatters.formatShortDate(grade.date)
+                val header = listOfNotNull(
+                  "$emojiPrefix${grade.subject}",
+                  dateLabel.takeIf { it.isNotBlank() }
+                ).joinToString(" · ")
                 Text(
-                  text = "${grade.emoji ?: "📊"} ${grade.subject}",
-                  color = Color.White,
-                  fontSize = 12.sp,
-                  fontWeight = FontWeight.SemiBold,
+                  text = header,
+                  color = secondaryText,
+                  fontSize = 10.5.sp,
+                  fontWeight = FontWeight.Medium,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                  text = grade.description.ifBlank { WearFormatters.formatShortDate(grade.date) },
-                  color = Color.White.copy(alpha = 0.7f),
-                  fontSize = 10.sp,
+                  text = grade.description.ifBlank { "Évaluation" },
+                  color = tintedText,
+                  fontSize = 12.sp,
+                  fontWeight = FontWeight.SemiBold,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
               }
               Text(
                 text = "${grade.score}${grade.outOf}",
-                color = gradeAccent,
+                color = tintedText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
               )
@@ -818,16 +1132,13 @@ private fun GradesScreen(snapshot: WearSnapshot?, accentColor: Color) {
 private fun CanteenScreen(
   snapshot: WearSnapshot?,
   accentColor: Color,
+  gradientStops: List<Color>,
   onOpenQr: (Int) -> Unit
 ) {
   val listState = rememberScalingLazyListState()
   val cards = snapshot?.canteenCards.orEmpty()
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -847,7 +1158,7 @@ private fun CanteenScreen(
             onClick = { onOpenQr(index) },
             modifier = Modifier.fillMaxWidth(),
             colors = ChipDefaults.secondaryChipColors(
-              backgroundColor = SurfaceDark.copy(alpha = 0.9f),
+              backgroundColor = CardDark.copy(alpha = 0.92f),
               contentColor = Color.White
             ),
             label = {
@@ -869,13 +1180,17 @@ private fun CanteenScreen(
 }
 
 @Composable
-private fun CanteenQrScreen(card: WearCanteenCard?) {
+private fun CanteenQrScreen(
+  card: WearCanteenCard?,
+  accentColor: Color,
+  gradientStops: List<Color>
+) {
   val bitmap: Bitmap? = remember(card?.qrData, card?.qrType) {
     val data = card?.qrData ?: return@remember null
     QrCodeGenerator.generate(data, card.qrType, 320)
   }
 
-  Scaffold(timeText = { TimeText() }) {
+  WearScreenContainer(gradientStops = gradientStops) {
     Column(
       modifier = Modifier
         .fillMaxSize()
@@ -912,7 +1227,7 @@ private fun CanteenQrScreen(card: WearCanteenCard?) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
           text = card.balanceText,
-          color = DefaultSecondary,
+          color = accentColor,
           fontSize = 12.sp,
           fontWeight = FontWeight.Bold
         )
@@ -926,6 +1241,8 @@ private fun CustomizeScreen(
   snapshot: WearSnapshot?,
   prefs: WearLocalPreferences,
   accentColor: Color,
+  brightAccent: Color,
+  gradientStops: List<Color>,
   onToggleGradient: (Boolean) -> Unit,
   onToggleSection: (String, Boolean) -> Unit,
   onSelectComplicationMetric: (String) -> Unit,
@@ -936,11 +1253,20 @@ private fun CustomizeScreen(
   val activeSections = snapshot?.effectiveSections(prefs) ?: prefs.enabledSections
   val activeMetric = snapshot?.effectiveComplicationMetric(prefs) ?: prefs.complicationMetric
 
-  Scaffold(
-    timeText = { TimeText() },
-    vignette = { Vignette(vignettePosition = VignettePosition.TopAndBottom) },
-    positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
-  ) {
+  val toggleColors = ToggleChipDefaults.toggleChipColors(
+    checkedStartBackgroundColor = accentColor.copy(alpha = 0.28f),
+    checkedEndBackgroundColor = CardDark,
+    uncheckedStartBackgroundColor = CardDark,
+    uncheckedEndBackgroundColor = CardDark
+  )
+  val switchColors = SwitchDefaults.colors(
+    checkedThumbColor = brightAccent,
+    checkedTrackColor = accentColor.copy(alpha = 0.36f),
+    uncheckedThumbColor = Color(0xFFB4B4BC),
+    uncheckedTrackColor = CardDarkElevated
+  )
+
+  WearScreenContainer(gradientStops = gradientStops, listState = listState) {
     ScalingLazyColumn(
       state = listState,
       modifier = Modifier
@@ -950,7 +1276,7 @@ private fun CustomizeScreen(
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
       item {
-        ScreenHeader(title = "Personnaliser", accentColor = accentColor)
+        ScreenHeader(title = "Personnaliser", accentColor = brightAccent)
       }
 
       item {
@@ -958,14 +1284,9 @@ private fun CustomizeScreen(
           checked = activeSyncGradient,
           onCheckedChange = onToggleGradient,
           modifier = Modifier.fillMaxWidth(),
-          colors = ToggleChipDefaults.toggleChipColors(
-            checkedStartBackgroundColor = accentColor.copy(alpha = 0.3f),
-            checkedEndBackgroundColor = SurfaceDark,
-            uncheckedStartBackgroundColor = SurfaceDark,
-            uncheckedEndBackgroundColor = SurfaceDark
-          ),
+          colors = toggleColors,
           label = { Text("Sync thème & dégradé", fontSize = 12.sp, maxLines = 1) },
-          toggleControl = { Switch(checked = activeSyncGradient) }
+          toggleControl = { Switch(checked = activeSyncGradient, colors = switchColors) }
         )
       }
 
@@ -981,15 +1302,16 @@ private fun CustomizeScreen(
           checked = checked,
           onCheckedChange = { onToggleSection(id, it) },
           modifier = Modifier.fillMaxWidth(),
+          colors = toggleColors,
           label = { Text(title, fontSize = 12.sp, maxLines = 1) },
-          toggleControl = { Switch(checked = checked) }
+          toggleControl = { Switch(checked = checked, colors = switchColors) }
         )
       }
 
       item {
         Text(
           text = "Complication du cadran",
-          color = accentColor,
+          color = brightAccent,
           fontSize = 11.sp,
           fontWeight = FontWeight.Bold,
           modifier = Modifier.padding(top = 4.dp)
@@ -1007,7 +1329,7 @@ private fun CustomizeScreen(
           onClick = { onSelectComplicationMetric(metricId) },
           modifier = Modifier.fillMaxWidth(),
           colors = ChipDefaults.secondaryChipColors(
-            backgroundColor = if (selected) accentColor.copy(alpha = 0.28f) else SurfaceDark,
+            backgroundColor = if (selected) accentColor.copy(alpha = 0.28f) else CardDark,
             contentColor = Color.White
           ),
           label = {
@@ -1026,7 +1348,7 @@ private fun CustomizeScreen(
             onClick = onResetPhoneConfig,
             modifier = Modifier.fillMaxWidth(),
             colors = ChipDefaults.secondaryChipColors(
-              backgroundColor = Color(0xFF282C38),
+              backgroundColor = CardDarkElevated,
               contentColor = Color.White
             ),
             label = {
@@ -1047,12 +1369,15 @@ private fun CustomizeScreen(
 }
 
 @Composable
-private fun ShareQrScreen(accentColor: Color) {
+private fun ShareQrScreen(
+  accentColor: Color,
+  gradientStops: List<Color>
+) {
   val qrBitmap = remember {
     QrCodeGenerator.generate(WearSnapshot.RELEASE_PAGE_URL, "qrcode", 320)
   }
 
-  Scaffold(timeText = { TimeText() }) {
+  WearScreenContainer(gradientStops = gradientStops) {
     Column(
       modifier = Modifier
         .fillMaxSize()
@@ -1088,7 +1413,7 @@ private fun ShareQrScreen(accentColor: Color) {
       Spacer(modifier = Modifier.height(4.dp))
       Text(
         text = "timpim-dev/Papillon-beta",
-        color = Color.White.copy(alpha = 0.72f),
+        color = TextSecondaryDark,
         fontSize = 10.sp
       )
     }
@@ -1113,7 +1438,7 @@ private fun EmptyCard(message: String) {
     modifier = Modifier
       .fillMaxWidth()
       .clip(RoundedCornerShape(16.dp))
-      .background(SurfaceDark.copy(alpha = 0.85f))
+      .background(CardDark.copy(alpha = 0.90f))
       .padding(12.dp),
     contentAlignment = Alignment.Center
   ) {
