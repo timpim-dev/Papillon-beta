@@ -221,6 +221,15 @@ export default function SettingsIndex() {
         router.navigate("/(settings)/watch")
       }
     },
+    {
+      icon: <Papicons name={"Sparkles"} />,
+      title: "Assistant IA",
+      description: "Coach de révision, API & cookies",
+      color: "#7C3AED",
+      onPress: () => {
+        router.navigate("/(settings)/ai")
+      }
+    },
     ...(MAGIC_AVAILABLE ? [{
       icon: <Papicons name={"Sparkles"} />,
       title: "Magic+",

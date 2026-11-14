@@ -249,6 +249,43 @@ function RootNavigatorContent() {
             presentation: "modal",
           }}
         />
+
+        <Stack.Screen
+          name="(features)/ai"
+          options={{
+            headerShown: false,
+            headerTitle: "Assistant IA",
+            headerTransparent: runsIOS26,
+            presentation: "modal",
+          }}
+        />
+
+        <Stack.Screen
+          name="(features)/(communications)/communications"
+          options={{
+            headerShown: false,
+            headerTitle: "Messages",
+            headerTransparent: runsIOS26,
+            presentation: "modal",
+          }}
+        />
+
+        <Stack.Screen
+          name="(features)/(communications)/thread"
+          options={{
+            headerShown: true,
+            headerTitle: "Discussion",
+          }}
+        />
+
+        <Stack.Screen
+          name="(features)/(communications)/new"
+          options={{
+            headerShown: true,
+            headerTitle: "Nouvelle discussion",
+            presentation: "modal",
+          }}
+        />
       </Stack>
     </View>
   );

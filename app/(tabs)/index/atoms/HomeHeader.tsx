@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Stack from '@/ui/components/Stack';
+import { useSettingsStore } from '@/stores/settings';
 import { getCurrentPeriod } from '@/utils/grades/helper/period';
 
 import HomeHeaderButton, { HomeHeaderButtonItem } from '../components/HomeHeaderButton';
@@ -18,6 +19,7 @@ const HomeHeader = () => {
     ? getCurrentPeriod(attendancesPeriods)
     : undefined;
 
+  const aiEnabled = useSettingsStore(s => s.personalization?.aiAssistantEnabled !== false);
   const HomeHeaderButtons: HomeHeaderButtonItem[] = useMemo(() => [
     {
       title: t("Home_Cards_Button_Title"),
@@ -59,8 +61,24 @@ const HomeHeader = () => {
       color: "#0080ff",
       description: news[0]?.title ?? t("News_Empty_Title"),
       route: "/(features)/(news)/news"
-    }
-  ], [availableCanteenCards, absencesCount, news, currentAttendancePeriod, attendancesPeriods, attendances, t]);
+    },
+    {
+      title: "Messages",
+      image: require("@/assets/shaded_icons/actu.png"),
+      icon: "textbubble",
+      color: "#0EA5E9",
+      description: "Discussions & profs",
+      route: "/(features)/(communications)/communications"
+    },
+    ...(aiEnabled ? [{
+      title: "Assistant IA",
+      image: require("@/assets/shaded_icons/actu.png"),
+      icon: "sparkles",
+      color: "#7C3AED",
+      description: "Réviser sans tricher",
+      route: "/(features)/ai"
+    }] : []),
+  ], [availableCanteenCards, absencesCount, news, currentAttendancePeriod, attendancesPeriods, attendances, aiEnabled, t]);
 
   return (
     <View style={{ paddingHorizontal: 0, width: "100%", flex: 1, overflow: "visible" }}>

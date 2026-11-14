@@ -159,6 +159,14 @@ export default function Layout() {
             headerLargeTitle: false,
           }}
         />
+        <Stack.Screen
+          name="ai"
+          options={{
+            headerTitle: "Assistant IA",
+            headerBackButtonDisplayMode: "minimal",
+            headerLargeTitle: false,
+          }}
+        />
       </Stack>
     </>
   );
