@@ -12,8 +12,10 @@ import {
   Personalization,
   SettingsState,
   SettingsStorage,
+  WearComplicationMetric,
   WearConfig,
   WearSectionId,
+  WearTilePreset,
 } from "./types";
 
 export const DEFAULT_MATERIAL_YOU_ENABLED =
@@ -70,11 +72,29 @@ export const DEFAULT_WEAR_CONFIG: WearConfig = {
   syncThemeGradient: true,
   enabledSections: ["classes", "tasks", "grades", "canteen"],
   complicationMetric: "next_class",
+  tilePreset: "next_2_classes",
 };
 
 const VALID_WEAR_SECTIONS = new Set<WearSectionId>(
   DEFAULT_WEAR_CONFIG.enabledSections
 );
+
+const VALID_WEAR_TILE_PRESETS = new Set<WearTilePreset>([
+  "next_2_classes",
+  "next_class_countdown",
+  "homework",
+  "grade_average",
+  "latest_grades",
+  "overview",
+]);
+
+const VALID_WEAR_METRICS = new Set<WearComplicationMetric>([
+  "next_class",
+  "next_class_countdown",
+  "tasks_count",
+  "overall_average",
+  "latest_grade",
+]);
 
 /**
  * Normalizes persisted Wear OS preferences, ensuring the section list
@@ -98,13 +118,23 @@ export function resolveWearConfig(personalization?: Personalization): WearConfig
     }
   }
 
+  const metric =
+    saved.complicationMetric && VALID_WEAR_METRICS.has(saved.complicationMetric)
+      ? saved.complicationMetric
+      : "next_class";
+  const tilePreset =
+    saved.tilePreset && VALID_WEAR_TILE_PRESETS.has(saved.tilePreset)
+      ? saved.tilePreset
+      : "next_2_classes";
+
   return {
     syncThemeGradient: saved.syncThemeGradient ?? true,
     enabledSections:
       sections.length > 0 || (saved.enabledSections && saved.enabledSections.length === 0)
         ? sections
         : [...DEFAULT_WEAR_CONFIG.enabledSections],
-    complicationMetric: saved.complicationMetric ?? "next_class",
+    complicationMetric: metric,
+    tilePreset,
   };
 }
 

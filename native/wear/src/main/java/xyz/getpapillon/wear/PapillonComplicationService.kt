@@ -32,6 +32,7 @@ class PapillonComplicationService : SuspendingComplicationDataSourceService() {
       ?: snapshot?.nextClasses?.firstOrNull()
     val pendingTasks = snapshot?.tasks?.filter { !it.isDone }.orEmpty()
     val overallAvg = snapshot?.overallAverage
+    val latestGrade = snapshot?.latestGrades?.firstOrNull()
 
     val (shortText, shortTitle, longText, longTitle) = when (metric) {
       "tasks_count" -> {
@@ -52,6 +53,50 @@ class PapillonComplicationService : SuspendingComplicationDataSourceService() {
           "Moyenne : $avg",
           snapshot?.accountName ?: "Papillon +"
         )
+      }
+      "latest_grade" -> {
+        if (latestGrade != null) {
+          val scoreStr = "${latestGrade.score}${latestGrade.outOf}"
+          val prefix = latestGrade.emoji?.let { "$it " } ?: ""
+          Quad(
+            scoreStr.take(8),
+            latestGrade.subject.take(10),
+            "$prefix${latestGrade.subject} : $scoreStr",
+            latestGrade.description.ifBlank { "Dernière note" }
+          )
+        } else {
+          Quad("--", "Note", "Aucune note récente", "Papillon +")
+        }
+      }
+      "next_class_countdown" -> {
+        if (nextCourse != null) {
+          val countdown = WearFormatters.formatCountdown(nextCourse.from, nextCourse.to, now)
+          val shortCountdown = when {
+            now < nextCourse.from -> {
+              val mins = ((nextCourse.from - now) / 60000L).toInt().coerceAtLeast(1)
+              val h = mins / 60
+              val m = mins % 60
+              when {
+                h >= 24 -> WearFormatters.formatHour(nextCourse.from)
+                h > 0 && m > 0 -> "${h}h${m.toString().padStart(2, '0')}"
+                h > 0 -> "${h}h"
+                else -> "${mins} min"
+              }
+            }
+            nextCourse.to > now -> "En cours"
+            else -> "Terminé"
+          }
+          val prefix = nextCourse.emoji?.let { "$it " } ?: ""
+          val roomPart = nextCourse.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
+          Quad(
+            shortCountdown,
+            nextCourse.subject.take(10),
+            "$countdown • $prefix${nextCourse.subject}",
+            "${WearFormatters.formatTimeRange(nextCourse.from, nextCourse.to)}$roomPart"
+          )
+        } else {
+          Quad("Libre", "Papillon +", "Aucun cours à venir", "${pendingTasks.size} devoirs restants")
+        }
       }
       else -> {
         if (nextCourse != null) {

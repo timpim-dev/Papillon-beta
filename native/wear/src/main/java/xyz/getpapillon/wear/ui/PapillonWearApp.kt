@@ -257,6 +257,11 @@ fun PapillonWearApp() {
               it.copy(useCustomOverride = true, complicationMetric = metric)
             }
           },
+          onSelectTilePreset = { preset ->
+            WearRepository.updateLocalPreferences(context) {
+              it.copy(useCustomOverride = true, tilePreset = preset)
+            }
+          },
           onResetPhoneConfig = {
             WearRepository.resetToPhoneConfig(context)
           }
@@ -1246,12 +1251,14 @@ private fun CustomizeScreen(
   onToggleGradient: (Boolean) -> Unit,
   onToggleSection: (String, Boolean) -> Unit,
   onSelectComplicationMetric: (String) -> Unit,
+  onSelectTilePreset: (String) -> Unit,
   onResetPhoneConfig: () -> Unit
 ) {
   val listState = rememberScalingLazyListState()
   val activeSyncGradient = snapshot?.effectiveSyncGradient(prefs) ?: prefs.syncThemeGradient
   val activeSections = snapshot?.effectiveSections(prefs) ?: prefs.enabledSections
   val activeMetric = snapshot?.effectiveComplicationMetric(prefs) ?: prefs.complicationMetric
+  val activeTilePreset = snapshot?.effectiveTilePreset(prefs) ?: prefs.tilePreset
 
   val toggleColors = ToggleChipDefaults.toggleChipColors(
     checkedStartBackgroundColor = accentColor.copy(alpha = 0.28f),
@@ -1310,6 +1317,44 @@ private fun CustomizeScreen(
 
       item {
         Text(
+          text = "Tile / Widget Montre",
+          color = brightAccent,
+          fontSize = 11.sp,
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.padding(top = 4.dp)
+        )
+      }
+
+      val tilePresets = listOf(
+        "next_2_classes" to "2 prochains cours",
+        "next_class_countdown" to "1 cours + compte à rebours",
+        "homework" to "Devoirs à faire",
+        "grade_average" to "Moyenne générale",
+        "latest_grades" to "Dernières notes",
+        "overview" to "Résumé mixte"
+      )
+      items(tilePresets) { (presetId, presetLabel) ->
+        val selected = activeTilePreset == presetId
+        Chip(
+          onClick = { onSelectTilePreset(presetId) },
+          modifier = Modifier.fillMaxWidth(),
+          colors = ChipDefaults.secondaryChipColors(
+            backgroundColor = if (selected) accentColor.copy(alpha = 0.28f) else CardDark,
+            contentColor = Color.White
+          ),
+          label = {
+            Text(
+              text = if (selected) "● $presetLabel" else "○ $presetLabel",
+              fontSize = 12.sp,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
+            )
+          }
+        )
+      }
+
+      item {
+        Text(
           text = "Complication du cadran",
           color = brightAccent,
           fontSize = 11.sp,
@@ -1320,8 +1365,10 @@ private fun CustomizeScreen(
 
       val metrics = listOf(
         "next_class" to "Prochain cours",
+        "next_class_countdown" to "Compte à rebours",
         "tasks_count" to "Devoirs restants",
-        "overall_average" to "Moyenne générale"
+        "overall_average" to "Moyenne générale",
+        "latest_grade" to "Dernière note"
       )
       items(metrics) { (metricId, metricLabel) ->
         val selected = activeMetric == metricId

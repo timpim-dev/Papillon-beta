@@ -55,17 +55,29 @@ data class WearCanteenCard(
 data class WearConfig(
   val syncThemeGradient: Boolean = true,
   val enabledSections: List<String> = DEFAULT_SECTIONS,
-  val complicationMetric: String = DEFAULT_METRIC
+  val complicationMetric: String = DEFAULT_METRIC,
+  val tilePreset: String = DEFAULT_TILE_PRESET
 ) {
   companion object {
     val ALL_SECTIONS = listOf("classes", "tasks", "grades", "canteen")
     val DEFAULT_SECTIONS = ALL_SECTIONS
     const val DEFAULT_METRIC = "next_class"
+    const val DEFAULT_TILE_PRESET = "next_2_classes"
+    val ALL_TILE_PRESETS = listOf(
+      "next_2_classes",
+      "next_class_countdown",
+      "homework",
+      "grade_average",
+      "latest_grades",
+      "overview"
+    )
 
     fun fromJson(obj: JSONObject?): WearConfig {
       if (obj == null) return WearConfig()
       val syncGradient = obj.optBoolean("syncThemeGradient", true)
       val metric = obj.optString("complicationMetric", DEFAULT_METRIC).ifBlank { DEFAULT_METRIC }
+      val rawTilePreset = obj.optString("tilePreset", DEFAULT_TILE_PRESET)
+      val tilePreset = if (rawTilePreset in ALL_TILE_PRESETS) rawTilePreset else DEFAULT_TILE_PRESET
       val sectionsArray = obj.optJSONArray("enabledSections")
       val sections = if (sectionsArray == null) {
         DEFAULT_SECTIONS
@@ -82,7 +94,8 @@ data class WearConfig(
       return WearConfig(
         syncThemeGradient = syncGradient,
         enabledSections = sections,
-        complicationMetric = metric
+        complicationMetric = metric,
+        tilePreset = tilePreset
       )
     }
   }
@@ -92,7 +105,8 @@ data class WearLocalPreferences(
   val useCustomOverride: Boolean = false,
   val syncThemeGradient: Boolean = true,
   val enabledSections: List<String> = WearConfig.DEFAULT_SECTIONS,
-  val complicationMetric: String = WearConfig.DEFAULT_METRIC
+  val complicationMetric: String = WearConfig.DEFAULT_METRIC,
+  val tilePreset: String = WearConfig.DEFAULT_TILE_PRESET
 )
 
 data class WearSnapshot(
@@ -102,6 +116,7 @@ data class WearSnapshot(
   val wallpaperGradientColors: List<String>,
   val wearConfig: WearConfig,
   val overallAverage: String?,
+  val overallAverageSubtitle: String?,
   val nextClasses: List<WearCourse>,
   val latestGrades: List<WearGrade>,
   val tasks: List<WearTask>,
@@ -119,6 +134,10 @@ data class WearSnapshot(
     return if (prefs.useCustomOverride) prefs.complicationMetric else wearConfig.complicationMetric
   }
 
+  fun effectiveTilePreset(prefs: WearLocalPreferences): String {
+    return if (prefs.useCustomOverride) prefs.tilePreset else wearConfig.tilePreset
+  }
+
   companion object {
     const val RELEASE_PAGE_URL = "https://github.com/timpim-dev/Papillon-beta/releases"
 
@@ -134,6 +153,7 @@ data class WearSnapshot(
           wallpaperGradientColors = gradientList,
           wearConfig = WearConfig.fromJson(root.optJSONObject("wearConfig")),
           overallAverage = root.optNullableString("overallAverage"),
+          overallAverageSubtitle = root.optNullableString("overallAverageSubtitle"),
           nextClasses = parseArray(root.optJSONArray("nextClasses")) { item ->
             WearCourse(
               id = item.optString("id"),
@@ -305,6 +325,36 @@ object WearFormatters {
       hours > 0 && minutes > 0 -> "${hours}h ${minutes} min"
       hours > 0 -> "${hours}h"
       else -> "${minutes} min"
+    }
+  }
+
+  fun formatCountdown(
+    courseFromMs: Long,
+    courseToMs: Long,
+    nowMs: Long = System.currentTimeMillis()
+  ): String {
+    if (courseFromMs <= 0L) return ""
+    return if (nowMs < courseFromMs) {
+      val mins = ((courseFromMs - nowMs) / 60000L).toInt().coerceAtLeast(1)
+      val hours = mins / 60
+      val rem = mins % 60
+      when {
+        hours >= 24 -> formatRelativeDue(courseFromMs)
+        hours > 0 && rem > 0 -> "Dans ${hours}h $rem"
+        hours > 0 -> "Dans ${hours}h"
+        else -> "Dans $mins min"
+      }
+    } else if (courseToMs > nowMs) {
+      val leftMins = ((courseToMs - nowMs) / 60000L).toInt().coerceAtLeast(1)
+      val hours = leftMins / 60
+      val rem = leftMins % 60
+      if (hours > 0) {
+        "En cours (${hours}h${if (rem > 0) " $rem" else ""})"
+      } else {
+        "En cours ($leftMins min)"
+      }
+    } else {
+      "Terminé"
     }
   }
 

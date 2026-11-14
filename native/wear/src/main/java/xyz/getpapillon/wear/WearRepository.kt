@@ -25,6 +25,7 @@ object WearRepository {
   private const val KEY_SYNC_GRADIENT = "pref_sync_gradient"
   private const val KEY_SECTIONS_CSV = "pref_sections_csv"
   private const val KEY_COMPLICATION_METRIC = "pref_complication_metric"
+  private const val KEY_TILE_PRESET = "pref_tile_preset"
   private const val KEY_PENDING_APK_PATH = "pending_apk_path"
 
   private val _snapshot = MutableStateFlow<WearSnapshot?>(null)
@@ -51,7 +52,10 @@ object WearRepository {
         ?.takeIf { it.isNotEmpty() || prefs.contains(KEY_SECTIONS_CSV) }
         ?: WearConfig.DEFAULT_SECTIONS,
       complicationMetric = prefs.getString(KEY_COMPLICATION_METRIC, WearConfig.DEFAULT_METRIC)
-        ?: WearConfig.DEFAULT_METRIC
+        ?: WearConfig.DEFAULT_METRIC,
+      tilePreset = prefs.getString(KEY_TILE_PRESET, WearConfig.DEFAULT_TILE_PRESET)
+        ?.takeIf { it in WearConfig.ALL_TILE_PRESETS }
+        ?: WearConfig.DEFAULT_TILE_PRESET
     )
     _localPreferences.value = localPrefs
 
@@ -93,7 +97,8 @@ object WearRepository {
       _localPreferences.value.copy(
         syncThemeGradient = synced.syncThemeGradient,
         enabledSections = synced.enabledSections,
-        complicationMetric = synced.complicationMetric
+        complicationMetric = synced.complicationMetric,
+        tilePreset = synced.tilePreset
       )
     } else {
       _localPreferences.value
@@ -110,7 +115,8 @@ object WearRepository {
       useCustomOverride = false,
       syncThemeGradient = synced.syncThemeGradient,
       enabledSections = synced.enabledSections,
-      complicationMetric = synced.complicationMetric
+      complicationMetric = synced.complicationMetric,
+      tilePreset = synced.tilePreset
     )
     persistLocalPreferences(context, next)
     _localPreferences.value = next
@@ -124,6 +130,7 @@ object WearRepository {
       .putBoolean(KEY_SYNC_GRADIENT, prefsValue.syncThemeGradient)
       .putString(KEY_SECTIONS_CSV, prefsValue.enabledSections.joinToString(","))
       .putString(KEY_COMPLICATION_METRIC, prefsValue.complicationMetric)
+      .putString(KEY_TILE_PRESET, prefsValue.tilePreset)
       .apply()
   }
 

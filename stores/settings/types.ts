@@ -43,15 +43,26 @@ export interface HomeWidgetConfig {
 
 export type WearSectionId = "classes" | "tasks" | "grades" | "canteen";
 
+export type WearTilePreset =
+  | "next_2_classes"
+  | "next_class_countdown"
+  | "homework"
+  | "grade_average"
+  | "latest_grades"
+  | "overview";
+
 export type WearComplicationMetric =
   | "next_class"
+  | "next_class_countdown"
   | "tasks_count"
-  | "overall_average";
+  | "overall_average"
+  | "latest_grade";
 
 export interface WearConfig {
   syncThemeGradient: boolean;
   enabledSections: WearSectionId[];
   complicationMetric: WearComplicationMetric;
+  tilePreset?: WearTilePreset;
 }
 
 export interface AccountWallpaper {

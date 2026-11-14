@@ -50,7 +50,9 @@ import { Course, CourseStatus, CourseType } from "@/services/shared/timetable";
 import { Services } from "@/stores/account/types";
 import {
   DEFAULT_HOME_WIDGETS,
+  DEFAULT_WEAR_CONFIG,
   getHomeWidgetsForAccount,
+  resolveWearConfig,
 } from "@/stores/settings";
 import type { Personalization } from "@/stores/settings/types";
 import { getCodeType, getServiceName } from "@/utils/services/helper";
@@ -286,5 +288,72 @@ describe("buildAndroidWidgetsSnapshot", () => {
         qrType: getCodeType(Services.TURBOSELF),
       },
     ]);
+  });
+
+  it("populates overallAverageValue, scale, and averageHistory from history fallback", () => {
+    const now = new Date("2026-05-14T10:00:00.000Z").getTime();
+    const snapshot = buildAndroidWidgetsSnapshot({
+      courses: [],
+      subjects: [],
+      displayScale: "20",
+      tasks: [],
+      averageHistoryPoints: [
+        { date: new Date("2026-05-01T12:00:00.000Z"), average: 11.2 },
+        { date: new Date("2026-05-10T12:00:00.000Z"), average: 12.75 },
+      ],
+      now,
+    });
+
+    expect(snapshot.overallAverage).toBe("12.75/20");
+    expect(snapshot.overallAverageValue).toBe("12.75");
+    expect(snapshot.overallAverageScale).toBe("/20");
+    expect(snapshot.overallAverageSubtitle).toContain("estimée au");
+    expect(snapshot.averageHistory).toHaveLength(2);
+    expect(snapshot.averageHistory?.[1].value).toBe(12.75);
+  });
+});
+
+describe("resolveWearConfig", () => {
+  it("normalizes tilePreset and expanded complication metrics with safe fallbacks", () => {
+    expect(resolveWearConfig(undefined)).toEqual(DEFAULT_WEAR_CONFIG);
+
+    const custom = resolveWearConfig({
+      wearConfig: {
+        syncThemeGradient: false,
+        enabledSections: ["tasks", "grades"],
+        complicationMetric: "next_class_countdown",
+        tilePreset: "latest_grades",
+      },
+    });
+    expect(custom).toEqual({
+      syncThemeGradient: false,
+      enabledSections: ["tasks", "grades"],
+      complicationMetric: "next_class_countdown",
+      tilePreset: "latest_grades",
+    });
+
+    const latestGradeMetric = resolveWearConfig({
+      wearConfig: {
+        syncThemeGradient: true,
+        enabledSections: ["classes"],
+        complicationMetric: "latest_grade",
+        tilePreset: "homework",
+      },
+    });
+    expect(latestGradeMetric.complicationMetric).toBe("latest_grade");
+    expect(latestGradeMetric.tilePreset).toBe("homework");
+
+    const invalid = resolveWearConfig({
+      wearConfig: {
+        syncThemeGradient: true,
+        enabledSections: ["classes"],
+        // @ts-expect-error testing invalid runtime values
+        complicationMetric: "unknown_metric",
+        // @ts-expect-error testing invalid runtime values
+        tilePreset: "unknown_preset",
+      },
+    });
+    expect(invalid.complicationMetric).toBe(DEFAULT_WEAR_CONFIG.complicationMetric);
+    expect(invalid.tilePreset).toBe(DEFAULT_WEAR_CONFIG.tilePreset);
   });
 });

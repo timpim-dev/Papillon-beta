@@ -32,6 +32,7 @@ import {
   WearComplicationMetric,
   WearConfig,
   WearSectionId,
+  WearTilePreset,
 } from "@/stores/settings/types";
 import Icon from "@/ui/components/Icon";
 import Stack from "@/ui/components/Stack";
@@ -91,6 +92,43 @@ const SECTION_META: Array<{
   },
 ];
 
+const TILE_PRESET_META: Array<{
+  id: WearTilePreset;
+  title: string;
+  description: string;
+}> = [
+  {
+    id: "next_2_classes",
+    title: "2 prochains cours",
+    description: "Affiche tes 2 prochains cours avec heure et salle",
+  },
+  {
+    id: "next_class_countdown",
+    title: "1 cours + compte à rebours",
+    description: "Affiche le temps restant avant ou pendant le cours suivant",
+  },
+  {
+    id: "homework",
+    title: "Devoirs à faire",
+    description: "Affiche tes prochains devoirs non terminés",
+  },
+  {
+    id: "grade_average",
+    title: "Moyenne générale",
+    description: "Met en avant ta moyenne générale et ta dernière note",
+  },
+  {
+    id: "latest_grades",
+    title: "Dernières notes",
+    description: "Affiche tes 2 dernières évaluations reçues",
+  },
+  {
+    id: "overview",
+    title: "Résumé mixte",
+    description: "Combine le prochain cours et les devoirs restants",
+  },
+];
+
 const METRIC_META: Array<{
   id: WearComplicationMetric;
   title: string;
@@ -102,6 +140,11 @@ const METRIC_META: Array<{
     description: "Affiche le nom, l'heure et la salle du prochain cours",
   },
   {
+    id: "next_class_countdown",
+    title: "Compte à rebours cours",
+    description: "Affiche le temps restant avant le prochain cours sur le cadran",
+  },
+  {
     id: "tasks_count",
     title: "Devoirs restants",
     description: "Compte le nombre de devoirs à faire sur la montre",
@@ -110,6 +153,11 @@ const METRIC_META: Array<{
     id: "overall_average",
     title: "Moyenne générale",
     description: "Affiche ta moyenne générale actuelle sur le cadran",
+  },
+  {
+    id: "latest_grade",
+    title: "Dernière note",
+    description: "Affiche ta note la plus récente et sa matière",
   },
 ];
 
@@ -554,6 +602,37 @@ export default function SettingsWatchPage() {
             Restaure les sections et le thème par défaut
           </Typography>
         </List.Item>
+      </List.Section>
+
+      <List.Section id="wear-tile-preset">
+        <List.SectionTitle>
+          <List.Label>Tuile / Widget sur la montre</List.Label>
+        </List.SectionTitle>
+        {TILE_PRESET_META.map(preset => {
+          const selected = (wearConfig.tilePreset ?? DEFAULT_WEAR_CONFIG.tilePreset) === preset.id;
+          return (
+            <List.Item
+              key={preset.id}
+              id={`tile-${preset.id}`}
+              onPress={() =>
+                updateWearConfig(prev => ({
+                  ...prev,
+                  tilePreset: preset.id,
+                }))
+              }
+            >
+              <Typography variant="title">{preset.title}</Typography>
+              <Typography variant="body2" color="textSecondary">
+                {preset.description}
+              </Typography>
+              <List.Trailing>
+                {selected ? (
+                  <Papicons name="Check" color={String(colors.primary)} />
+                ) : null}
+              </List.Trailing>
+            </List.Item>
+          );
+        })}
       </List.Section>
 
       <List.Section id="wear-complication-metric">
