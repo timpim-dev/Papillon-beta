@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="wear_app_name">papillion beta</string>
+  <string name="wear_app_name">Papillon +</string>
   <string name="wear_home_timetable">Emploi du temps</string>
   <string name="wear_home_tasks">Tâches</string>
   <string name="wear_home_grades">Notes</string>
@@ -10,5 +10,8 @@
   <string name="wear_empty_tasks">Aucun devoir à faire</string>
   <string name="wear_empty_grades">Aucune note récente</string>
   <string name="wear_empty_canteen">Aucune carte cantine</string>
-  <string name="wear_no_sync_yet">Ouvre Papillon sur ton téléphone pour synchroniser</string>
+  <string name="wear_no_sync_yet">Ouvre Papillon + sur ton téléphone pour synchroniser</string>
+  <string name="wear_tile_label">Papillon +</string>
+  <string name="wear_tile_description">Prochain cours et devoirs à venir</string>
+  <string name="wear_complication_label">Papillon +</string>
 </resources>

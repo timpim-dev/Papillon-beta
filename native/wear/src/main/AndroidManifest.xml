@@ -3,6 +3,7 @@
 
   <uses-feature android:name="android.hardware.type.watch" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
   <application
     android:allowBackup="true"
@@ -25,6 +26,16 @@
       </intent-filter>
     </activity>
 
+    <provider
+      android:name=".PapillonWearUpdaterFileProvider"
+      android:authorities="${applicationId}.wearupdater.fileprovider"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/wear_apk_file_paths" />
+    </provider>
+
     <service
       android:name=".WearDataListenerService"
       android:exported="true">
@@ -32,9 +43,44 @@
         <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
         <data
           android:host="*"
-          android:pathPrefix="/papillon/sync"
+          android:pathPrefix="/papillon"
           android:scheme="wear" />
       </intent-filter>
+      <intent-filter>
+        <action android:name="com.google.android.gms.wearable.CHANNEL_EVENT" />
+        <data
+          android:host="*"
+          android:pathPrefix="/papillon"
+          android:scheme="wear" />
+      </intent-filter>
+    </service>
+
+    <service
+      android:name=".PapillonTileService"
+      android:description="@string/wear_tile_description"
+      android:exported="true"
+      android:label="@string/wear_tile_label"
+      android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+      <intent-filter>
+        <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+      </intent-filter>
+    </service>
+
+    <service
+      android:name=".PapillonComplicationService"
+      android:exported="true"
+      android:icon="@mipmap/ic_launcher"
+      android:label="@string/wear_complication_label"
+      android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+      <intent-filter>
+        <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
+      </intent-filter>
+      <meta-data
+        android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+        android:value="SHORT_TEXT,LONG_TEXT" />
+      <meta-data
+        android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+        android:value="900" />
     </service>
   </application>
 </manifest>
