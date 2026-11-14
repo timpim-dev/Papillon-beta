@@ -2,14 +2,17 @@ name: Papillon + Release APKs
 
 on:
   push:
+    branches:
+      - "beta-*"
     tags:
       - "v*"
       - "plus-*"
+      - "beta-*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag de release (ex: v8.6.3-plus)"
-        required: true
+        description: "Tag de release (optionnel, ex: v8.6.3-plus)"
+        required: false
         type: string
 
 permissions:
@@ -75,10 +78,10 @@ jobs:
             ALIAS="${BETA_KEY_ALIAS:-androiddebugkey}"
             KEYPASS="${BETA_KEY_PASSWORD:-$PASS}"
             for cfg in android/app/build.gradle native/wear/build.gradle; do
-              sed -i "s|storeFile .*debug.keystore.*|storeFile rootProject.file(\"app/release.keystore\")|" "$cfg"
-              sed -i "s|storePassword \"android\"|storePassword \"$PASS\"|" "$cfg"
-              sed -i "s|keyAlias \"androiddebugkey\"|keyAlias \"$ALIAS\"|" "$cfg"
-              sed -i "s|keyPassword \"android\"|keyPassword \"$KEYPASS\"|" "$cfg"
+              sed -i -E "s|storeFile .*debug\.keystore.*|storeFile rootProject.file(\"app/release.keystore\")|" "$cfg"
+              sed -i -E "s|storePassword ['\"]android['\"]|storePassword \"$PASS\"|" "$cfg"
+              sed -i -E "s|keyAlias ['\"]androiddebugkey['\"]|keyAlias \"$ALIAS\"|" "$cfg"
+              sed -i -E "s|keyPassword ['\"]android['\"]|keyPassword \"$KEYPASS\"|" "$cfg"
             done
           fi
 
@@ -105,11 +108,16 @@ jobs:
       - name: Determine release tag
         id: meta
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          APP_VER=$(jq -r '.version // "8.6.2"' package.json)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
           else
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            TAG="v${APP_VER}-beta-${SHORT_SHA}"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
