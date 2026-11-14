@@ -45,10 +45,19 @@ export interface AndroidWidgetCanteenCard {
   qrType: string | null;
 }
 
+export interface AndroidWidgetAveragePoint {
+  value: number;
+  date: number;
+}
+
 export interface AndroidWidgetsSnapshot {
   updatedAt: number;
   accountName: string | null;
   overallAverage: string | null;
+  overallAverageValue?: string | null;
+  overallAverageScale?: string | null;
+  overallAverageSubtitle?: string | null;
+  averageHistory?: AndroidWidgetAveragePoint[];
   themeColor?: string | null;
   wallpaperGradientColors?: string[];
   wearConfig?: WearConfig;

@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/widget_background"
+  android:orientation="vertical"
+  android:padding="14dp">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingBottom="10dp">
+
+    <ImageView
+      android:id="@+id/widget_header_icon"
+      android:layout_width="18dp"
+      android:layout_height="18dp"
+      android:layout_marginEnd="8dp"
+      android:contentDescription="@null"
+      android:src="@drawable/ic_widget_grades"
+      android:tint="@color/papillon_widget_text_secondary" />
+
+    <TextView
+      android:id="@+id/widget_header_title"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:ellipsize="end"
+      android:fontFamily="sans-serif-medium"
+      android:maxLines="1"
+      android:text="@string/widget_average_title"
+      android:textColor="@color/papillon_widget_text_secondary"
+      android:textSize="14sp"
+      android:textStyle="bold" />
+
+    <LinearLayout
+      android:id="@+id/widget_header_badge"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:background="@drawable/widget_neutral_pill"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingHorizontal="10dp"
+      android:paddingVertical="5dp">
+
+      <TextView
+        android:id="@+id/widget_header_badge_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:text="@string/widget_see_more"
+        android:textColor="@color/papillon_widget_text_secondary"
+        android:textSize="11.5sp"
+        android:textStyle="bold" />
+
+      <ImageView
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_marginStart="4dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_widget_arrow_up_right"
+        android:tint="@color/papillon_widget_text_secondary" />
+    </LinearLayout>
+  </LinearLayout>
+
+  <TextView
+    android:id="@+id/widget_empty_text"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:gravity="center"
+    android:text="@string/widget_average_empty"
+    android:textColor="@color/papillon_widget_text_secondary"
+    android:textSize="13sp"
+    android:visibility="gone" />
+
+  <LinearLayout
+    android:id="@+id/average_card_container"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:background="@drawable/widget_average_card_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="14dp"
+    android:paddingVertical="12dp">
+
+    <ImageView
+      android:id="@+id/average_graph_image"
+      android:layout_width="0dp"
+      android:layout_height="match_parent"
+      android:layout_marginEnd="12dp"
+      android:layout_weight="0.42"
+      android:contentDescription="@null"
+      android:scaleType="fitCenter" />
+
+    <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="0.58"
+      android:gravity="center_vertical"
+      android:orientation="vertical">
+
+      <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="bottom"
+        android:orientation="horizontal">
+
+        <TextView
+          android:id="@+id/average_value"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:fontFamily="sans-serif-black"
+          android:maxLines="1"
+          android:textSize="24sp"
+          android:textStyle="bold" />
+
+        <TextView
+          android:id="@+id/average_scale"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="2dp"
+          android:fontFamily="sans-serif-medium"
+          android:maxLines="1"
+          android:paddingBottom="2dp"
+          android:textSize="14sp"
+          android:textStyle="bold" />
+      </LinearLayout>
+
+      <TextView
+        android:id="@+id/average_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif-medium"
+        android:maxLines="1"
+        android:text="Moyenne générale"
+        android:textColor="@color/papillon_widget_text_primary"
+        android:textSize="13.5sp"
+        android:textStyle="bold" />
+
+      <TextView
+        android:id="@+id/average_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/papillon_widget_text_secondary"
+        android:textSize="11.5sp" />
+    </LinearLayout>
+  </LinearLayout>
+</LinearLayout>

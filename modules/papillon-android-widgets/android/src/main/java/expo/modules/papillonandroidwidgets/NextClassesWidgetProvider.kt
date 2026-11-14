@@ -2,12 +2,25 @@ package expo.modules.papillonandroidwidgets
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
 
 class NextClassesWidgetProvider : AppWidgetProvider() {
+  override fun onReceive(context: Context, intent: Intent) {
+    super.onReceive(context, intent)
+    if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+      val manager = AppWidgetManager.getInstance(context)
+      val ids = manager.getAppWidgetIds(ComponentName(context, NextClassesWidgetProvider::class.java))
+      if (ids.isNotEmpty()) {
+        updateWidgets(context, manager, ids)
+      }
+    }
+  }
+
   override fun onUpdate(
     context: Context,
     appWidgetManager: AppWidgetManager,
@@ -53,8 +66,6 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             context.getString(R.string.widget_next_classes_title)
           }
         )
-        views.setViewVisibility(R.id.widget_header_badge, View.VISIBLE)
-        views.setTextViewText(R.id.widget_header_badge, context.getString(R.string.widget_see_more))
 
         if (dayCourses.isEmpty()) {
           views.setViewVisibility(R.id.widget_empty_text, View.VISIBLE)
@@ -73,7 +84,12 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             R.id.course_1_bg,
             R.id.course_1_color,
             R.id.course_1_subject,
-            R.id.course_1_details,
+            R.id.course_1_pin_icon,
+            R.id.course_1_room,
+            R.id.course_1_sep,
+            R.id.course_1_teacher_container,
+            R.id.course_1_user_icon,
+            R.id.course_1_teacher,
             R.id.course_1_duration
           )
           bindCourseRow(
@@ -86,7 +102,12 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             R.id.course_2_bg,
             R.id.course_2_color,
             R.id.course_2_subject,
-            R.id.course_2_details,
+            R.id.course_2_pin_icon,
+            R.id.course_2_room,
+            R.id.course_2_sep,
+            R.id.course_2_teacher_container,
+            R.id.course_2_user_icon,
+            R.id.course_2_teacher,
             R.id.course_2_duration
           )
           bindCourseRow(
@@ -99,7 +120,12 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             R.id.course_3_bg,
             R.id.course_3_color,
             R.id.course_3_subject,
-            R.id.course_3_details,
+            R.id.course_3_pin_icon,
+            R.id.course_3_room,
+            R.id.course_3_sep,
+            R.id.course_3_teacher_container,
+            R.id.course_3_user_icon,
+            R.id.course_3_teacher,
             R.id.course_3_duration
           )
         }
@@ -118,7 +144,12 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
       bgId: Int,
       colorId: Int,
       subjectId: Int,
-      detailsId: Int,
+      pinIconId: Int,
+      roomId: Int,
+      sepId: Int,
+      teacherContainerId: Int,
+      userIconId: Int,
+      teacherId: Int,
       durationId: Int,
     ) {
       if (course == null) {
@@ -137,31 +168,54 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
       } else {
         WidgetStore.adjustColor(course.color, if (isNight) 0.10f else -0.15f)
       }
-      val secondaryTextColor = if (course.isCanceled) {
-        WidgetStore.withAlpha(textColor, 0.85f)
-      } else {
-        textColor
-      }
+      val metaTextColor = WidgetStore.withAlpha(textColor, 0.90f)
+      val sepColor = WidgetStore.withAlpha(textColor, 0.50f)
+      val durationColor = WidgetStore.withAlpha(textColor, 0.85f)
 
       views.setInt(bgId, "setColorFilter", bgTint)
       views.setInt(colorId, "setColorFilter", textColor)
       views.setTextColor(subjectId, textColor)
-      views.setTextColor(detailsId, secondaryTextColor)
-      views.setTextColor(durationId, secondaryTextColor)
+      views.setInt(pinIconId, "setColorFilter", metaTextColor)
+      views.setTextColor(roomId, metaTextColor)
+      views.setTextColor(sepId, sepColor)
+      views.setInt(userIconId, "setColorFilter", metaTextColor)
+      views.setTextColor(teacherId, metaTextColor)
+      views.setTextColor(durationId, durationColor)
 
       views.setTextViewText(startId, WidgetStore.formatHourMinute(course.from))
       views.setTextViewText(endId, WidgetStore.formatHourMinute(course.to))
-
-      // Matches in-app Course.tsx: no emoji prefix in course title
       views.setTextViewText(
         subjectId,
         if (course.isCanceled) "${course.subject} (Annulé)" else course.subject
       )
-      val details = listOfNotNull(
-        course.room?.takeIf { it.isNotBlank() },
-        course.teacher?.takeIf { it.isNotBlank() }
-      ).joinToString("  |  ")
-      views.setTextViewText(detailsId, details.ifEmpty { "Cours prévu" })
+
+      val room = course.room?.trim()?.takeIf { it.isNotEmpty() }
+      val teacher = course.teacher?.trim()?.takeIf { it.isNotEmpty() }
+
+      if (room != null) {
+        views.setViewVisibility(pinIconId, View.VISIBLE)
+        views.setViewVisibility(roomId, View.VISIBLE)
+        views.setTextViewText(roomId, room)
+      } else if (teacher == null) {
+        views.setViewVisibility(pinIconId, View.GONE)
+        views.setViewVisibility(roomId, View.VISIBLE)
+        views.setTextViewText(roomId, "Cours prévu")
+      } else {
+        views.setViewVisibility(pinIconId, View.GONE)
+        views.setViewVisibility(roomId, View.GONE)
+      }
+
+      if (teacher != null) {
+        views.setViewVisibility(teacherContainerId, View.VISIBLE)
+        views.setTextViewText(teacherId, teacher)
+      } else {
+        views.setViewVisibility(teacherContainerId, View.GONE)
+      }
+
+      views.setViewVisibility(
+        sepId,
+        if (room != null && teacher != null) View.VISIBLE else View.GONE
+      )
       views.setTextViewText(durationId, WidgetStore.formatDuration(course.from, course.to))
     }
   }

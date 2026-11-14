@@ -1,4 +1,5 @@
 import {
+  AndroidWidgetAveragePoint,
   AndroidWidgetCanteenCard,
   AndroidWidgetCourse,
   AndroidWidgetGrade,
@@ -14,7 +15,9 @@ import type { WearConfig } from "@/stores/settings/types";
 import { formatHTML } from "@/utils/format/html";
 import {
   formatGradeScoreForDisplay,
+  getDisplayDenominator,
   GradeDisplayScale,
+  toDisplayScaleFrom20,
 } from "@/utils/grades/scale";
 import { getCodeType, getServiceName } from "@/utils/services/helper";
 import { getSubjectColor } from "@/utils/subjects/colors";
@@ -29,6 +32,7 @@ export interface BuildSnapshotInput {
   courses: Course[];
   subjects: Subject[];
   overallAverage?: GradeScore | null;
+  averageHistoryPoints?: Array<{ average: number; date: Date }>;
   displayScale: GradeDisplayScale;
   tasks: Homework[];
   balances?: Balance[];
@@ -55,6 +59,7 @@ export function buildAndroidWidgetsSnapshot({
   courses,
   subjects,
   overallAverage,
+  averageHistoryPoints = [],
   displayScale,
   tasks,
   balances = [],
@@ -106,7 +111,19 @@ export function buildAndroidWidgetsSnapshot({
       };
     });
 
+  const scaledHistory: AndroidWidgetAveragePoint[] = averageHistoryPoints
+    .filter(pt => typeof pt?.average === "number" && Number.isFinite(pt.average))
+    .slice(-24)
+    .map(pt => ({
+      value: Number(toDisplayScaleFrom20(pt.average, displayScale).toFixed(2)),
+      date: new Date(pt.date).getTime() || now,
+    }));
+
   let formattedOverall: string | null = null;
+  let overallAverageValue: string | null = null;
+  let overallAverageScale: string | null = null;
+  let overallAverageSubtitle: string | null = null;
+
   if (
     overallAverage &&
     !overallAverage.disabled &&
@@ -117,7 +134,26 @@ export function buildAndroidWidgetsSnapshot({
       { value: 20 },
       displayScale
     );
+    overallAverageValue = formatted.value;
+    overallAverageScale = formatted.denominator;
     formattedOverall = `${formatted.value}${formatted.denominator}`;
+    overallAverageSubtitle = "par l'établissement";
+  } else if (scaledHistory.length > 0) {
+    const lastPoint = scaledHistory[scaledHistory.length - 1];
+    overallAverageValue = lastPoint.value.toFixed(2);
+    overallAverageScale = getDisplayDenominator(displayScale);
+    formattedOverall = `${overallAverageValue}${overallAverageScale}`;
+    const estimatedDate = new Date(lastPoint.date);
+    const formattedDate = Number.isNaN(estimatedDate.getTime())
+      ? ""
+      : estimatedDate.toLocaleDateString("fr-FR", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+    overallAverageSubtitle = formattedDate
+      ? `estimée au ${formattedDate}`
+      : "moyenne estimée";
   }
 
   const upcomingTasks: AndroidWidgetTask[] = tasks
@@ -163,6 +199,10 @@ export function buildAndroidWidgetsSnapshot({
     ...(wallpaperGradientColors ? { wallpaperGradientColors } : {}),
     ...(wearConfig ? { wearConfig } : {}),
     overallAverage: formattedOverall,
+    overallAverageValue,
+    overallAverageScale,
+    overallAverageSubtitle,
+    averageHistory: scaledHistory,
     nextClasses,
     latestGrades,
     tasks: upcomingTasks,

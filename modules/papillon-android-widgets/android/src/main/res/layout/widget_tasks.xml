@@ -5,15 +5,23 @@
   android:layout_height="match_parent"
   android:background="@drawable/widget_background"
   android:orientation="vertical"
-  android:padding="12dp">
+  android:padding="14dp">
 
   <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingHorizontal="4dp"
-    android:paddingBottom="8dp">
+    android:paddingBottom="10dp">
+
+    <ImageView
+      android:id="@+id/widget_header_icon"
+      android:layout_width="18dp"
+      android:layout_height="18dp"
+      android:layout_marginEnd="8dp"
+      android:contentDescription="@null"
+      android:src="@drawable/ic_widget_tasks"
+      android:tint="@color/papillon_widget_text_secondary" />
 
     <TextView
       android:id="@+id/widget_header_title"
@@ -25,21 +33,37 @@
       android:maxLines="1"
       android:text="@string/widget_tasks_title"
       android:textColor="@color/papillon_widget_text_secondary"
-      android:textSize="13.5sp"
+      android:textSize="14sp"
       android:textStyle="bold" />
 
-    <TextView
-      android:id="@+id/widget_tasks_count_badge"
+    <LinearLayout
+      android:id="@+id/widget_header_badge"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:background="@drawable/widget_neutral_pill"
-      android:fontFamily="sans-serif-medium"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
       android:paddingHorizontal="10dp"
-      android:paddingVertical="4dp"
-      android:text="@string/widget_see_more"
-      android:textColor="@color/papillon_widget_text_secondary"
-      android:textSize="11sp"
-      android:textStyle="bold" />
+      android:paddingVertical="5dp">
+
+      <TextView
+        android:id="@+id/widget_header_badge_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:text="@string/widget_see_more"
+        android:textColor="@color/papillon_widget_text_secondary"
+        android:textSize="11.5sp"
+        android:textStyle="bold" />
+
+      <ImageView
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_marginStart="4dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_widget_arrow_up_right"
+        android:tint="@color/papillon_widget_text_secondary" />
+    </LinearLayout>
   </LinearLayout>
 
   <TextView
@@ -60,235 +84,244 @@
     android:layout_weight="1"
     android:background="@drawable/widget_task_card_bg"
     android:gravity="center_vertical"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:paddingHorizontal="12dp"
-    android:paddingVertical="8dp"
-    android:visibility="gone">
+    android:paddingVertical="10dp">
 
     <LinearLayout
-      android:layout_width="match_parent"
+      android:layout_width="0dp"
       android:layout_height="wrap_content"
-      android:gravity="center_vertical"
-      android:orientation="horizontal">
+      android:layout_weight="1"
+      android:orientation="vertical"
+      android:paddingEnd="10dp">
 
-      <TextView
-        android:id="@+id/task_1_emoji"
-        android:layout_width="wrap_content"
+      <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="15sp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-      <TextView
-        android:id="@+id/task_1_subject"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
-        android:layout_weight="1"
-        android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
-        android:textSize="12.5sp"
-        android:textStyle="bold" />
+        <TextView
+          android:id="@+id/task_1_emoji"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginEnd="5dp"
+          android:textSize="13sp" />
 
-      <TextView
-        android:id="@+id/task_1_due"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
-        android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="11sp" />
-    </LinearLayout>
+        <TextView
+          android:id="@+id/task_1_subject"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
+          android:maxLines="1"
+          android:textSize="12.5sp"
+          android:textStyle="bold" />
 
-    <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="4dp"
-      android:gravity="center_vertical"
-      android:orientation="horizontal">
+        <TextView
+          android:id="@+id/task_1_due"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="6dp"
+          android:maxLines="1"
+          android:textColor="@color/papillon_widget_text_secondary"
+          android:textSize="11sp" />
+      </LinearLayout>
 
       <TextView
         android:id="@+id/task_1_description"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
+        android:layout_marginTop="3dp"
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
+        android:maxLines="2"
         android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="13sp" />
-
-      <TextView
-        android:id="@+id/task_1_check"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/widget_check_circle"
-        android:gravity="center"
-        android:text="✓"
-        android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="12sp"
+        android:textSize="13.5sp"
         android:textStyle="bold" />
     </LinearLayout>
+
+    <FrameLayout
+      android:id="@+id/task_1_check_btn"
+      android:layout_width="32dp"
+      android:layout_height="32dp"
+      android:background="@drawable/widget_check_circle">
+
+      <ImageView
+        android:id="@+id/task_1_check_icon"
+        android:layout_width="15dp"
+        android:layout_height="15dp"
+        android:layout_gravity="center"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_widget_check"
+        android:tint="@color/papillon_widget_text_secondary" />
+    </FrameLayout>
   </LinearLayout>
 
   <LinearLayout
     android:id="@+id/task_2_container"
     android:layout_width="match_parent"
     android:layout_height="0dp"
-    android:layout_marginTop="6dp"
+    android:layout_marginTop="7dp"
     android:layout_weight="1"
     android:background="@drawable/widget_task_card_bg"
     android:gravity="center_vertical"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:paddingHorizontal="12dp"
-    android:paddingVertical="8dp"
-    android:visibility="gone">
+    android:paddingVertical="10dp">
 
     <LinearLayout
-      android:layout_width="match_parent"
+      android:layout_width="0dp"
       android:layout_height="wrap_content"
-      android:gravity="center_vertical"
-      android:orientation="horizontal">
+      android:layout_weight="1"
+      android:orientation="vertical"
+      android:paddingEnd="10dp">
 
-      <TextView
-        android:id="@+id/task_2_emoji"
-        android:layout_width="wrap_content"
+      <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="15sp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-      <TextView
-        android:id="@+id/task_2_subject"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
-        android:layout_weight="1"
-        android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
-        android:textSize="12.5sp"
-        android:textStyle="bold" />
+        <TextView
+          android:id="@+id/task_2_emoji"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginEnd="5dp"
+          android:textSize="13sp" />
 
-      <TextView
-        android:id="@+id/task_2_due"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
-        android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="11sp" />
-    </LinearLayout>
+        <TextView
+          android:id="@+id/task_2_subject"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
+          android:maxLines="1"
+          android:textSize="12.5sp"
+          android:textStyle="bold" />
 
-    <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="4dp"
-      android:gravity="center_vertical"
-      android:orientation="horizontal">
+        <TextView
+          android:id="@+id/task_2_due"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="6dp"
+          android:maxLines="1"
+          android:textColor="@color/papillon_widget_text_secondary"
+          android:textSize="11sp" />
+      </LinearLayout>
 
       <TextView
         android:id="@+id/task_2_description"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
+        android:layout_marginTop="3dp"
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
+        android:maxLines="2"
         android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="13sp" />
-
-      <TextView
-        android:id="@+id/task_2_check"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/widget_check_circle"
-        android:gravity="center"
-        android:text="✓"
-        android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="12sp"
+        android:textSize="13.5sp"
         android:textStyle="bold" />
     </LinearLayout>
+
+    <FrameLayout
+      android:id="@+id/task_2_check_btn"
+      android:layout_width="32dp"
+      android:layout_height="32dp"
+      android:background="@drawable/widget_check_circle">
+
+      <ImageView
+        android:id="@+id/task_2_check_icon"
+        android:layout_width="15dp"
+        android:layout_height="15dp"
+        android:layout_gravity="center"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_widget_check"
+        android:tint="@color/papillon_widget_text_secondary" />
+    </FrameLayout>
   </LinearLayout>
 
   <LinearLayout
     android:id="@+id/task_3_container"
     android:layout_width="match_parent"
     android:layout_height="0dp"
-    android:layout_marginTop="6dp"
+    android:layout_marginTop="7dp"
     android:layout_weight="1"
     android:background="@drawable/widget_task_card_bg"
     android:gravity="center_vertical"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:paddingHorizontal="12dp"
-    android:paddingVertical="8dp"
-    android:visibility="gone">
+    android:paddingVertical="10dp">
 
     <LinearLayout
-      android:layout_width="match_parent"
+      android:layout_width="0dp"
       android:layout_height="wrap_content"
-      android:gravity="center_vertical"
-      android:orientation="horizontal">
+      android:layout_weight="1"
+      android:orientation="vertical"
+      android:paddingEnd="10dp">
 
-      <TextView
-        android:id="@+id/task_3_emoji"
-        android:layout_width="wrap_content"
+      <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="15sp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-      <TextView
-        android:id="@+id/task_3_subject"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
-        android:layout_weight="1"
-        android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
-        android:textSize="12.5sp"
-        android:textStyle="bold" />
+        <TextView
+          android:id="@+id/task_3_emoji"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginEnd="5dp"
+          android:textSize="13sp" />
 
-      <TextView
-        android:id="@+id/task_3_due"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
-        android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="11sp" />
-    </LinearLayout>
+        <TextView
+          android:id="@+id/task_3_subject"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
+          android:maxLines="1"
+          android:textSize="12.5sp"
+          android:textStyle="bold" />
 
-    <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_marginTop="4dp"
-      android:gravity="center_vertical"
-      android:orientation="horizontal">
+        <TextView
+          android:id="@+id/task_3_due"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="6dp"
+          android:maxLines="1"
+          android:textColor="@color/papillon_widget_text_secondary"
+          android:textSize="11sp" />
+      </LinearLayout>
 
       <TextView
         android:id="@+id/task_3_description"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
+        android:layout_marginTop="3dp"
         android:ellipsize="end"
         android:fontFamily="sans-serif-medium"
-        android:maxLines="1"
+        android:maxLines="2"
         android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="13sp" />
-
-      <TextView
-        android:id="@+id/task_3_check"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/widget_check_circle"
-        android:gravity="center"
-        android:text="✓"
-        android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="12sp"
+        android:textSize="13.5sp"
         android:textStyle="bold" />
     </LinearLayout>
+
+    <FrameLayout
+      android:id="@+id/task_3_check_btn"
+      android:layout_width="32dp"
+      android:layout_height="32dp"
+      android:background="@drawable/widget_check_circle">
+
+      <ImageView
+        android:id="@+id/task_3_check_icon"
+        android:layout_width="15dp"
+        android:layout_height="15dp"
+        android:layout_gravity="center"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_widget_check"
+        android:tint="@color/papillon_widget_text_secondary" />
+    </FrameLayout>
   </LinearLayout>
 </LinearLayout>

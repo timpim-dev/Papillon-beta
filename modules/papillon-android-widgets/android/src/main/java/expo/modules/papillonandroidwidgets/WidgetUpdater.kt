@@ -8,11 +8,11 @@ object WidgetUpdater {
   fun updateAll(context: Context) {
     val manager = AppWidgetManager.getInstance(context)
 
-    val nextClassIds = manager.getAppWidgetIds(
+    val nextClassesIds = manager.getAppWidgetIds(
       ComponentName(context, NextClassesWidgetProvider::class.java)
     )
-    if (nextClassIds.isNotEmpty()) {
-      NextClassesWidgetProvider.updateWidgets(context, manager, nextClassIds)
+    if (nextClassesIds.isNotEmpty()) {
+      NextClassesWidgetProvider.updateWidgets(context, manager, nextClassesIds)
     }
 
     val gradesIds = manager.getAppWidgetIds(
@@ -20,6 +20,13 @@ object WidgetUpdater {
     )
     if (gradesIds.isNotEmpty()) {
       LatestGradesWidgetProvider.updateWidgets(context, manager, gradesIds)
+    }
+
+    val averageIds = manager.getAppWidgetIds(
+      ComponentName(context, AverageWidgetProvider::class.java)
+    )
+    if (averageIds.isNotEmpty()) {
+      AverageWidgetProvider.updateWidgets(context, manager, averageIds)
     }
 
     val tasksIds = manager.getAppWidgetIds(

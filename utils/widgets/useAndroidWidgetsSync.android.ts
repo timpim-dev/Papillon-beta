@@ -15,6 +15,7 @@ import {
 import {
   androidWidgetsAreSupported,
   consumePendingWearTaskToggles,
+  reloadWidgets,
   syncWidgetsSnapshot,
 } from "@/modules/papillon-android-widgets";
 import { getManager } from "@/services/shared";
@@ -91,7 +92,7 @@ const useAndroidSync = () => {
     showCancelled: true,
   });
   const { currentPeriod } = usePeriodsData();
-  const { subjects, averages } = useGradesData(currentPeriod);
+  const { subjects, averages, history } = useGradesData(currentPeriod);
 
   const currentWeek = getWeekNumberFromDate(new Date());
   const weeks = useMemo(() => [currentWeek, currentWeek + 1], [currentWeek]);
@@ -221,10 +222,12 @@ const useAndroidSync = () => {
   }, [accountTasks]);
 
   useEffect(() => {
+    reloadWidgets().catch(() => {});
     processWearTaskToggles();
     const interval = setInterval(processWearTaskToggles, WEAR_TOGGLE_POLL_MS);
     const sub = AppState.addEventListener("change", nextState => {
       if (nextState === "active") {
+        reloadWidgets().catch(() => {});
         processWearTaskToggles();
       }
     });
@@ -253,6 +256,7 @@ const useAndroidSync = () => {
         courses: allCourses,
         subjects,
         overallAverage: averages.student,
+        averageHistoryPoints: history?.subject,
         displayScale,
         tasks: accountTasks,
         balances,
@@ -284,6 +288,7 @@ const useAndroidSync = () => {
     allCourses,
     subjects,
     averages.student,
+    history?.subject,
     displayScale,
     accountTasks,
     balances,

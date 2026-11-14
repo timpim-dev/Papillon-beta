@@ -2,11 +2,11 @@
 <resources>
   <color name="papillon_widget_bg">#121212</color>
   <color name="papillon_widget_border">#00000000</color>
-  <color name="papillon_widget_card_bg">#1B1B1E</color>
+  <color name="papillon_widget_card_bg">#1A1A1E</color>
   <color name="papillon_widget_card_border">#00000000</color>
-  <color name="papillon_widget_pill_bg">#1F1F23</color>
+  <color name="papillon_widget_pill_bg">#1AFFFFFF</color>
   <color name="papillon_widget_text_primary">#FFFFFF</color>
-  <color name="papillon_widget_text_secondary">#98989F</color>
+  <color name="papillon_widget_text_secondary">#99FFFFFF</color>
   <color name="papillon_widget_accent">#4DC4A6</color>
   <color name="papillon_widget_accent_bg">#1E3A33</color>
 </resources>

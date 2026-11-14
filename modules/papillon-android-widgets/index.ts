@@ -1,4 +1,5 @@
 export {
+  type AndroidWidgetAveragePoint,
   type AndroidWidgetCanteenCard,
   type AndroidWidgetCourse,
   type AndroidWidgetGrade,

@@ -17,6 +17,11 @@ const WIDGET_RECEIVERS = [
     label: "@string/widget_tasks_title",
     resource: "@xml/widget_tasks_info",
   },
+  {
+    name: "expo.modules.papillonandroidwidgets.AverageWidgetProvider",
+    label: "@string/widget_average_title",
+    resource: "@xml/widget_average_info",
+  },
 ];
 
 function upsertWidgetReceiver(receivers, widget) {

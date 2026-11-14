@@ -4,7 +4,13 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Shader
 import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
@@ -51,6 +57,10 @@ data class WidgetSnapshot(
   val updatedAt: Long,
   val accountName: String?,
   val overallAverage: String?,
+  val overallAverageValue: String?,
+  val overallAverageScale: String?,
+  val overallAverageSubtitle: String?,
+  val averageHistory: List<Float>,
   val themeColor: String?,
   val nextClasses: List<WidgetCourseItem>,
   val latestGrades: List<WidgetGradeItem>,
@@ -87,6 +97,10 @@ object WidgetStore {
         updatedAt = root.optLong("updatedAt", 0L),
         accountName = root.optString("accountName").takeIf { it.isNotEmpty() && it != "null" },
         overallAverage = root.optString("overallAverage").takeIf { it.isNotEmpty() && it != "null" },
+        overallAverageValue = root.optString("overallAverageValue").takeIf { it.isNotEmpty() && it != "null" },
+        overallAverageScale = root.optString("overallAverageScale").takeIf { it.isNotEmpty() && it != "null" },
+        overallAverageSubtitle = root.optString("overallAverageSubtitle").takeIf { it.isNotEmpty() && it != "null" },
+        averageHistory = parseAverageHistory(root.optJSONArray("averageHistory")),
         themeColor = root.optString("themeColor").takeIf { it.isNotEmpty() && it != "null" },
         nextClasses = parseCourses(root.optJSONArray("nextClasses")),
         latestGrades = parseGrades(root.optJSONArray("latestGrades")),
@@ -372,6 +386,107 @@ object WidgetStore {
 
   fun formatDueDate(dateMs: Long): String {
     return formatRelativeDistanceDay(dateMs)
+  }
+
+  private fun parseAverageHistory(array: JSONArray?): List<Float> {
+    if (array == null) return emptyList()
+    val values = mutableListOf<Float>()
+    for (i in 0 until array.length()) {
+      val obj = array.optJSONObject(i) ?: continue
+      val v = obj.optDouble("value", Double.NaN)
+      if (!v.isNaN() && !v.isInfinite()) {
+        values.add(v.toFloat())
+      }
+    }
+    return values
+  }
+
+  fun renderAverageGraphBitmap(
+    points: List<Float>,
+    accentColor: Int,
+    widthPx: Int = 340,
+    heightPx: Int = 180,
+  ): Bitmap {
+    val bmp = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    val series = when {
+      points.size >= 2 -> points
+      points.size == 1 -> listOf(points[0], points[0])
+      else -> return bmp
+    }
+
+    val minVal = series.minOrNull() ?: 0f
+    val maxVal = series.maxOrNull() ?: 20f
+    val span = (maxVal - minVal).takeIf { it > 0.05f } ?: 1f
+
+    val leftPad = 10f
+    val rightPad = 24f
+    val topPad = 22f
+    val bottomPad = 22f
+    val drawW = (widthPx - leftPad - rightPad).coerceAtLeast(1f)
+    val drawH = (heightPx - topPad - bottomPad).coerceAtLeast(1f)
+
+    val coords = series.mapIndexed { idx, value ->
+      val x = leftPad + (idx.toFloat() / (series.size - 1).coerceAtLeast(1)) * drawW
+      val norm = ((value - minVal) / span).coerceIn(0f, 1f)
+      val y = topPad + (1f - norm) * drawH
+      x to y
+    }
+
+    val linePath = Path()
+    val fillPath = Path()
+    val first = coords.first()
+    linePath.moveTo(first.first, first.second)
+    fillPath.moveTo(first.first, heightPx.toFloat())
+    fillPath.lineTo(first.first, first.second)
+
+    for (i in 1 until coords.size) {
+      val prev = coords[i - 1]
+      val curr = coords[i]
+      val midX = (prev.first + curr.first) / 2f
+      linePath.cubicTo(midX, prev.second, midX, curr.second, curr.first, curr.second)
+      fillPath.cubicTo(midX, prev.second, midX, curr.second, curr.first, curr.second)
+    }
+
+    val last = coords.last()
+    fillPath.lineTo(last.first, heightPx.toFloat())
+    fillPath.close()
+
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.FILL
+      shader = LinearGradient(
+        0f,
+        topPad,
+        0f,
+        heightPx.toFloat(),
+        withAlpha(accentColor, 0.28f),
+        Color.TRANSPARENT,
+        Shader.TileMode.CLAMP
+      )
+    }
+    canvas.drawPath(fillPath, fillPaint)
+
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.STROKE
+      strokeWidth = 7f
+      strokeCap = Paint.Cap.ROUND
+      strokeJoin = Paint.Join.ROUND
+      color = accentColor
+    }
+    canvas.drawPath(linePath, strokePaint)
+
+    val outerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.FILL
+      color = Color.WHITE
+    }
+    val innerDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      style = Paint.Style.FILL
+      color = accentColor
+    }
+    canvas.drawCircle(last.first, last.second, 12.5f, outerDotPaint)
+    canvas.drawCircle(last.first, last.second, 8f, innerDotPaint)
+
+    return bmp
   }
 
   fun createDeepLinkIntent(context: Context, uriString: String, requestCode: Int): PendingIntent {
