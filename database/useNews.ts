@@ -86,14 +86,14 @@ export async function addNewsToDatabase(news: SharedNews[]) {
         const apply = (newsModel: News) => {
           newsModel.newsId = id;
           newsModel.title = item.title ?? newsModel.title ?? "";
-          newsModel.createdAt = item.createdAt.getTime();
-          newsModel.acknowledged = item.acknowledged;
+          newsModel.createdAt = new Date(item.createdAt).getTime();
+          newsModel.acknowledged = Boolean(item.acknowledged);
           newsModel.attachments = JSON.stringify(item.attachments ?? []);
           newsModel.content = item.content ?? newsModel.content ?? "";
           newsModel.author = item.author ?? newsModel.author ?? "";
           newsModel.category = item.category ?? newsModel.category ?? "";
           newsModel.createdByAccount = item.createdByAccount ?? newsModel.createdByAccount ?? "";
-          newsModel.question = item.question ?? newsModel.question ?? false;
+          newsModel.question = Boolean(item.question);
         };
 
         operations.push(

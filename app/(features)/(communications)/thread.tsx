@@ -15,22 +15,25 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { getCachedLiveChat } from "@/components/communications/liveChatsCache";
+import { cacheLiveChats, getCachedLiveChat } from "@/components/communications/liveChatsCache";
 import { getMessagesFromCache } from "@/database/useChat";
 import { getManager } from "@/services/shared";
-import { Message } from "@/services/shared/chat";
+import { Chat, Message } from "@/services/shared/chat";
 import Avatar from "@/ui/components/Avatar";
 import Stack from "@/ui/components/Stack";
 import Typography from "@/ui/new/Typography";
 import { getProfileColorByName } from "@/utils/chats/colors";
 import { getInitials } from "@/utils/chats/initials";
 import { formatHTML } from "@/utils/format/html";
+import { buildChatSignature } from "@/utils/notifications/communicationsNotifications";
 
 export default function CommunicationThreadScreen() {
   const { sig } = useLocalSearchParams<{ sig: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const chat = sig ? getCachedLiveChat(sig) : undefined;
+  const initialChat = sig ? getCachedLiveChat(sig) : undefined;
+  const [liveChat, setLiveChat] = useState<Chat | undefined>(initialChat);
+  const chat = liveChat ?? initialChat;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,23 +41,42 @@ export default function CommunicationThreadScreen() {
   const [sending, setSending] = useState(false);
 
   const loadMessages = useCallback(async () => {
-    if (!chat) {
+    const activeChat = liveChat ?? (sig ? getCachedLiveChat(sig) : undefined);
+    if (!activeChat) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
+      const cached = await getMessagesFromCache(activeChat);
+      if (cached && cached.length > 0) {
+        setMessages([...cached].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      }
+
       const manager = getManager();
       if (manager) {
-        const fetched = await manager.getChatMessages(chat);
+        let targetChat = activeChat;
+        if (!targetChat.ref) {
+          const allChats = await manager.getChats();
+          cacheLiveChats(allChats);
+          const matched =
+            (sig ? allChats.find(c => buildChatSignature(c) === sig) : undefined) ??
+            allChats.find(
+              c =>
+                c.subject === activeChat.subject &&
+                new Date(c.date).getTime() === new Date(activeChat.date).getTime()
+            );
+          if (matched) {
+            targetChat = matched;
+            setLiveChat(matched);
+          }
+        }
+        const fetched = await manager.getChatMessages(targetChat);
         setMessages([...fetched].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-      } else {
-        const cached = await getMessagesFromCache(chat);
-        setMessages(cached ?? []);
       }
     } catch {
       try {
-        const cached = await getMessagesFromCache(chat);
+        const cached = await getMessagesFromCache(activeChat);
         setMessages(cached ?? []);
       } catch {
         setMessages([]);
@@ -62,7 +84,7 @@ export default function CommunicationThreadScreen() {
     } finally {
       setLoading(false);
     }
-  }, [chat]);
+  }, [liveChat, sig]);
 
   useEffect(() => {
     void loadMessages();

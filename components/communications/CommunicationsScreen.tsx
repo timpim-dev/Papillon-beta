@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AiAssistantScreen from "@/components/ai/AiAssistantScreen";
 import { getChatsFromCache } from "@/database/useChat";
-import { useNews } from "@/database/useNews";
+import { getNewsRouteId, useNews } from "@/database/useNews";
 import { getManager, subscribeManagerUpdate } from "@/services/shared";
 import { Chat } from "@/services/shared/chat";
 import { News } from "@/services/shared/news";
@@ -84,19 +84,23 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   const [subTab, setSubTab] = useState<MessagesSubTab>("discussions");
   const [headerHeight, setHeaderHeight] = useState(0);
   const [chats, setChats] = useState<Chat[]>([]);
+  const [liveNews, setLiveNews] = useState<News[]>([]);
   const [newsRefreshTick, setNewsRefreshTick] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshingNews, setIsRefreshingNews] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [readSet, setReadSet] = useState<Set<string>>(() => getReadChatSignatures());
-  const allNews = useNews(newsRefreshTick);
+  const dbNews = useNews(newsRefreshTick);
 
   const fetchNewsItems = useCallback(async () => {
     setIsRefreshingNews(true);
     try {
       const manager = getManager();
       if (manager) {
-        await manager.getNews();
+        const fetched = await manager.getNews();
+        if (Array.isArray(fetched) && fetched.length > 0) {
+          setLiveNews(fetched);
+        }
         setNewsRefreshTick(n => n + 1);
       }
     } catch (err) {
@@ -141,11 +145,19 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   useEffect(() => {
     void loadCached();
     void fetchChats();
+    void fetchNewsItems();
     const unsub = subscribeManagerUpdate(() => {
       void fetchChats();
+      void fetchNewsItems();
     });
     return () => unsub();
-  }, [fetchChats, loadCached]);
+  }, [fetchChats, fetchNewsItems, loadCached]);
+
+  useEffect(() => {
+    if (subTab === "infos" && liveNews.length === 0 && dbNews.length === 0) {
+      void fetchNewsItems();
+    }
+  }, [dbNews.length, fetchNewsItems, liveNews.length, subTab]);
 
   useFocusEffect(
     useCallback(() => {
@@ -172,11 +184,15 @@ export default function CommunicationsScreen({ isModal = false }: Communications
     return sortedChats.filter(c => !readSet.has(buildChatSignature(c))).length;
   }, [readSet, sortedChats]);
 
+  const mergedNews = useMemo(() => {
+    return dbNews.length > 0 ? dbNews : liveNews;
+  }, [dbNews, liveNews]);
+
   const sortedNews = useMemo(() => {
-    return [...allNews].sort(
+    return [...mergedNews].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [allNews]);
+  }, [mergedNews]);
 
   const filteredNews = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -202,9 +218,10 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   };
 
   const handleOpenNews = (item: News) => {
+    const targetId = dbNews.length > 0 ? item.id : getNewsRouteId(item);
     router.push({
       pathname: "/(features)/(news)/specific",
-      params: { id: item.id },
+      params: { id: targetId },
     });
   };
 
@@ -261,8 +278,9 @@ export default function CommunicationsScreen({ isModal = false }: Communications
               onPress={() => {
                 void fetchNewsItems();
               }}
-              icon="refresh"
-            />
+            >
+              Actualiser
+            </ChipButton>
           )
         }
         bottom={

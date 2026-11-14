@@ -652,7 +652,10 @@ export default function AiAssistantScreen({
           gap: 8,
           paddingHorizontal: 14,
           paddingTop: 8,
-          paddingBottom: Math.max(insets.bottom + (isModal ? 8 : 74), 14),
+          paddingBottom:
+            embedded && !isModal && Platform.OS === "android"
+              ? 10
+              : Math.max(insets.bottom + (isModal ? 8 : 74), 14),
           borderTopWidth: 1,
           borderTopColor: colors.border,
           backgroundColor: colors.card,

@@ -15,10 +15,10 @@ export default class CanteenMenu extends Model {
 	@field('createdByAccount') createdByAccount: string;
 	
 	get lunch(): Meal {
-	  return JSON.parse(this.lunchRaw);
+	  return this.lunchRaw ? JSON.parse(this.lunchRaw) : {};
 	}
 
 	get dinner(): Meal {
-	  return JSON.parse(this.mealRaw);
+	  return this.mealRaw ? JSON.parse(this.mealRaw) : {};
 	}
 }

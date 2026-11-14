@@ -35,13 +35,11 @@ export async function addCanteenMenuToDatabase(menus: SharedCanteenMenu[]) {
         const promises = menusToCreate.map(({ id, item }) =>
           db.get('canteenmenus').create((record: Model) => {
             const menu = record as CanteenMenu;
-            Object.assign(menu, {
-              menuId: id,
-              date: item.date.getTime(),
-              lunch: JSON.stringify(item.lunch),
-              dinner: JSON.stringify(item.dinner),
-              createdByAccount: item.createdByAccount
-            });
+            menu.menuId = id;
+            menu.date = new Date(item.date).getTime();
+            menu.lunchRaw = JSON.stringify(item.lunch ?? {});
+            menu.mealRaw = JSON.stringify(item.dinner ?? {});
+            menu.createdByAccount = item.createdByAccount;
           })
         );
         await Promise.all(promises);

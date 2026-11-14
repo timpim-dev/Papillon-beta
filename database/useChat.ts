@@ -36,9 +36,9 @@ export async function addChatsToDatabase(chats: SharedChat[]) {
 export async function addRecipientsToDatabase(chat: SharedChat, recipients: SharedRecipient[]) {
   const db = getDatabaseInstance();
   const chatId = generateId(chat.createdByAccount + chat.subject + chat.date)
-  const dbChat = await db.get('chats').find(chatId);
-  if (!dbChat) {
-    error("We're unable to find the chat in cache, please rehydrate chats before...")
+  const existingChats = await db.get<Chat>('chats').query(Q.where('chatId', chatId)).fetch();
+  if (existingChats.length === 0) {
+    await addChatsToDatabase([chat]);
   }
 
   for (const item of recipients) {
@@ -66,9 +66,9 @@ export async function addRecipientsToDatabase(chat: SharedChat, recipients: Shar
 export async function addMessagesToDatabase(chat: SharedChat, messages: SharedMessage[]) {
   const db = getDatabaseInstance();
   const chatId = generateId(chat.createdByAccount + chat.subject + chat.date)
-  const dbChat = await db.get('chats').find(chatId);
-  if (!dbChat) {
-    error("We're unable to find the chat in cache, please rehydrate chats before...")
+  const existingChats = await db.get<Chat>('chats').query(Q.where('chatId', chatId)).fetch();
+  if (existingChats.length === 0) {
+    await addChatsToDatabase([chat]);
   }
 
   for (const item of messages) {
@@ -87,8 +87,8 @@ export async function addMessagesToDatabase(chat: SharedChat, messages: SharedMe
           subject: item.subject,
           content: item.content,
           author: item.author,
-          date: item.date.getTime(),
-          attachments: JSON.stringify(item.attachments),
+          date: new Date(item.date).getTime(),
+          attachments: JSON.stringify(item.attachments ?? []),
           chatId: chatId
         })
       })

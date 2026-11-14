@@ -76,10 +76,17 @@ export const useHomeHeaderData = () => {
       }
     };
 
-    const unsubscribe = subscribeManagerUpdate((_) => {
-      const manager = getManager();
-      updateAttendance(manager);
+    const syncHomeHeaderManager = (manager: AccountManager | null | undefined) => {
+      if (!manager) return;
+      void updateAttendance(manager);
       void updateMenus(manager);
+      void manager.getNews().catch(() => {});
+    };
+
+    syncHomeHeaderManager(getManager());
+
+    const unsubscribe = subscribeManagerUpdate((_) => {
+      syncHomeHeaderManager(getManager());
     });
 
     return () => unsubscribe();
