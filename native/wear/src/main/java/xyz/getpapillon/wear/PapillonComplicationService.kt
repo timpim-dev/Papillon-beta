@@ -87,10 +87,16 @@ class PapillonComplicationService : SuspendingComplicationDataSourceService() {
             else -> "Terminé"
           }
           val prefix = nextCourse.emoji?.let { "$it " } ?: ""
-          val roomPart = nextCourse.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
+          val room = nextCourse.room?.trim()?.takeIf { it.isNotEmpty() }
+          val roomPart = room?.let { " • $it" } ?: ""
+          val shortTitle = if (room != null) {
+            "${nextCourse.subject.take(6)}·$room"
+          } else {
+            nextCourse.subject.take(10)
+          }
           Quad(
             shortCountdown,
-            nextCourse.subject.take(10),
+            shortTitle,
             "$countdown • $prefix${nextCourse.subject}",
             "${WearFormatters.formatTimeRange(nextCourse.from, nextCourse.to)}$roomPart"
           )
@@ -101,10 +107,13 @@ class PapillonComplicationService : SuspendingComplicationDataSourceService() {
       else -> {
         if (nextCourse != null) {
           val prefix = nextCourse.emoji?.let { "$it " } ?: ""
-          val roomPart = nextCourse.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
+          val hour = WearFormatters.formatHour(nextCourse.from)
+          val room = nextCourse.room?.trim()?.takeIf { it.isNotEmpty() }
+          val roomPart = room?.let { " • $it" } ?: ""
+          val shortTitle = listOfNotNull(hour.ifEmpty { null }, room).joinToString("·").ifEmpty { "Cours" }
           Quad(
             nextCourse.subject.take(10),
-            WearFormatters.formatHour(nextCourse.from).ifEmpty { "Cours" },
+            shortTitle,
             "$prefix${nextCourse.subject}",
             "${WearFormatters.formatTimeRange(nextCourse.from, nextCourse.to)}$roomPart"
           )

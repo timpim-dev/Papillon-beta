@@ -387,15 +387,22 @@ private fun HomeScreen(
 
       items(enabledSections) { sectionId ->
         when (sectionId) {
-          "classes" -> HomeMenuChip(
-            title = "Emploi du temps",
-            subtitle = snapshot?.nextClasses?.firstOrNull()?.let {
-              "${it.subject} • ${WearFormatters.formatHour(it.from)}"
-            } ?: "$nextClassesCount cours",
-            badgeEmoji = "📅",
-            accentColor = brightAccent,
-            onClick = { onNavigate("classes") }
-          )
+          "classes" -> {
+            val nowMs = System.currentTimeMillis()
+            val upcoming = snapshot?.nextClasses?.firstOrNull { !it.isCanceled && it.to > nowMs }
+              ?: snapshot?.nextClasses?.firstOrNull()
+            HomeMenuChip(
+              title = "Emploi du temps",
+              subtitle = upcoming?.let { c ->
+                val hour = WearFormatters.formatHour(c.from)
+                val room = c.room?.trim()?.takeIf { it.isNotEmpty() }?.let { " • $it" } ?: ""
+                "$hour$room · ${c.subject}"
+              } ?: "$nextClassesCount cours",
+              badgeEmoji = "📅",
+              accentColor = brightAccent,
+              onClick = { onNavigate("classes") }
+            )
+          }
           "tasks" -> HomeMenuChip(
             title = "Devoirs",
             subtitle = if (pendingTasksCount == 0) {

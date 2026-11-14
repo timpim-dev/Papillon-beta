@@ -113,19 +113,23 @@ class PapillonTileService : TileService() {
         val twoCourses = upcomingCourses.take(2)
         if (twoCourses.isEmpty()) {
           contentColumn.addContent(
-            buildTileCard(context, "Aucun cours à venir", accentInt, launchClickable)
+            buildTileCard(context, listOf(TileLine("Aucun cours à venir", Typography.TYPOGRAPHY_CAPTION1)), accentInt, launchClickable)
           )
         } else {
           twoCourses.forEachIndexed { idx, course ->
             if (idx > 0) addSpacer(contentColumn)
             val prefix = course.emoji?.let { "$it " } ?: ""
-            val timeRange = WearFormatters.formatTimeRange(course.from, course.to)
-            val room = course.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
+            val timeRange = formatCompactTimeRange(course.from, course.to)
+            val room = course.room?.trim()?.takeIf { it.isNotEmpty() }
+            val metaLine = if (room != null) "📍 $room • $timeRange" else timeRange
             val color = WearFormatters.adjustColor(course.color, 0.20f, accentInt)
             contentColumn.addContent(
               buildTileCard(
                 context = context,
-                text = "$prefix${course.subject}\n$timeRange$room",
+                lines = listOf(
+                  TileLine("$prefix${course.subject}", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE),
+                  TileLine(metaLine, Typography.TYPOGRAPHY_CAPTION2, Color.argb(225, 255, 255, 255))
+                ),
                 accentColor = color,
                 clickable = launchClickable
               )
@@ -141,29 +145,35 @@ class PapillonTileService : TileService() {
           val courseColor = WearFormatters.adjustColor(nextCourse.color, 0.20f, accentInt)
           val prefix = nextCourse.emoji?.let { "$it " } ?: ""
           val timeRange = WearFormatters.formatTimeRange(nextCourse.from, nextCourse.to)
-          val room = nextCourse.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
+          val room = nextCourse.room?.trim()?.takeIf { it.isNotEmpty() }
           contentColumn.addContent(
             buildTileCard(
               context = context,
-              text = countdown.ifEmpty { "Bientôt" },
+              lines = listOf(TileLine(countdown.ifEmpty { "Bientôt" }, Typography.TYPOGRAPHY_CAPTION1, Color.WHITE)),
               accentColor = courseColor,
-              clickable = launchClickable,
-              maxLines = 1
+              clickable = launchClickable
             )
           )
           addSpacer(contentColumn)
+          val detailLines = buildList {
+            add(TileLine("$prefix${nextCourse.subject}", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE))
+            add(TileLine(timeRange, Typography.TYPOGRAPHY_CAPTION2, Color.argb(215, 255, 255, 255)))
+            if (room != null) {
+              val roomLabel = if (room.startsWith("salle", ignoreCase = true)) room else "Salle $room"
+              add(TileLine("📍 $roomLabel", Typography.TYPOGRAPHY_CAPTION2, Color.WHITE))
+            }
+          }
           contentColumn.addContent(
             buildTileCard(
               context = context,
-              text = "$prefix${nextCourse.subject}\n$timeRange$room",
+              lines = detailLines,
               accentColor = courseColor,
-              clickable = launchClickable,
-              maxLines = 2
+              clickable = launchClickable
             )
           )
         } else {
           contentColumn.addContent(
-            buildTileCard(context, "Aucun cours à venir", accentInt, launchClickable)
+            buildTileCard(context, listOf(TileLine("Aucun cours à venir", Typography.TYPOGRAPHY_CAPTION1)), accentInt, launchClickable)
           )
         }
       }
@@ -173,7 +183,7 @@ class PapillonTileService : TileService() {
         val topTasks = pendingTasks.take(2)
         if (topTasks.isEmpty()) {
           contentColumn.addContent(
-            buildTileCard(context, "Aucun devoir à faire", accentInt, launchClickable)
+            buildTileCard(context, listOf(TileLine("Aucun devoir à faire", Typography.TYPOGRAPHY_CAPTION1)), accentInt, launchClickable)
           )
         } else {
           topTasks.forEachIndexed { idx, task ->
@@ -186,7 +196,10 @@ class PapillonTileService : TileService() {
             contentColumn.addContent(
               buildTileCard(
                 context = context,
-                text = "$titleLine\n$desc",
+                lines = listOf(
+                  TileLine(titleLine, Typography.TYPOGRAPHY_CAPTION1, Color.WHITE),
+                  TileLine(desc, Typography.TYPOGRAPHY_CAPTION2, Color.argb(215, 255, 255, 255))
+                ),
                 accentColor = color,
                 clickable = launchClickable
               )
@@ -200,9 +213,16 @@ class PapillonTileService : TileService() {
         val sub = snapshot?.overallAverageSubtitle?.takeIf { it.isNotBlank() }
           ?: snapshot?.accountName
           ?: "Papillon +"
-        val avgCard = if (!avgText.isNullOrBlank()) "$avgText\n$sub" else "Aucune moyenne calculée"
+        val avgLines = if (!avgText.isNullOrBlank()) {
+          listOf(
+            TileLine(avgText, Typography.TYPOGRAPHY_CAPTION1, Color.WHITE),
+            TileLine(sub, Typography.TYPOGRAPHY_CAPTION2, Color.argb(215, 255, 255, 255))
+          )
+        } else {
+          listOf(TileLine("Aucune moyenne calculée", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE))
+        }
         contentColumn.addContent(
-          buildTileCard(context, avgCard, accentInt, launchClickable)
+          buildTileCard(context, avgLines, accentInt, launchClickable)
         )
         val latest = grades.firstOrNull()
         if (latest != null) {
@@ -212,10 +232,9 @@ class PapillonTileService : TileService() {
           contentColumn.addContent(
             buildTileCard(
               context = context,
-              text = "$prefix${latest.subject} : ${latest.score}${latest.outOf}",
+              lines = listOf(TileLine("$prefix${latest.subject} : ${latest.score}${latest.outOf}", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE)),
               accentColor = color,
-              clickable = launchClickable,
-              maxLines = 1
+              clickable = launchClickable
             )
           )
         }
@@ -226,7 +245,7 @@ class PapillonTileService : TileService() {
         val twoGrades = grades.take(2)
         if (twoGrades.isEmpty()) {
           contentColumn.addContent(
-            buildTileCard(context, "Aucune note récente", accentInt, launchClickable)
+            buildTileCard(context, listOf(TileLine("Aucune note récente", Typography.TYPOGRAPHY_CAPTION1)), accentInt, launchClickable)
           )
         } else {
           twoGrades.forEachIndexed { idx, grade ->
@@ -237,7 +256,10 @@ class PapillonTileService : TileService() {
             contentColumn.addContent(
               buildTileCard(
                 context = context,
-                text = "$prefix${grade.subject} — ${grade.score}${grade.outOf}\n$desc",
+                lines = listOf(
+                  TileLine("$prefix${grade.subject} — ${grade.score}${grade.outOf}", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE),
+                  TileLine(desc, Typography.TYPOGRAPHY_CAPTION2, Color.argb(215, 255, 255, 255))
+                ),
                 accentColor = color,
                 clickable = launchClickable
               )
@@ -248,13 +270,17 @@ class PapillonTileService : TileService() {
 
       else -> {
         headerLabel = if (avgText != null) "Papillon + • $avgText" else "Papillon +"
-        val courseCardText = if (nextCourse != null) {
+        val courseLines = if (nextCourse != null) {
           val prefix = nextCourse.emoji?.let { "$it " } ?: ""
           val timeStr = WearFormatters.formatHour(nextCourse.from)
-          val roomStr = nextCourse.room?.takeIf { it.isNotBlank() }?.let { " • $it" } ?: ""
-          "$prefix${nextCourse.subject}\n$timeStr$roomStr"
+          val room = nextCourse.room?.trim()?.takeIf { it.isNotEmpty() }
+          val metaLine = if (room != null) "📍 $room • $timeStr" else timeStr
+          listOf(
+            TileLine("$prefix${nextCourse.subject}", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE),
+            TileLine(metaLine, Typography.TYPOGRAPHY_CAPTION2, Color.argb(225, 255, 255, 255))
+          )
         } else {
-          "Aucun cours à venir"
+          listOf(TileLine("Aucun cours à venir", Typography.TYPOGRAPHY_CAPTION1, Color.WHITE))
         }
         val courseColor = if (nextCourse != null) {
           WearFormatters.adjustColor(nextCourse.color, 0.20f, accentInt)
@@ -262,7 +288,7 @@ class PapillonTileService : TileService() {
           accentInt
         }
         contentColumn.addContent(
-          buildTileCard(context, courseCardText, courseColor, launchClickable)
+          buildTileCard(context, courseLines, courseColor, launchClickable)
         )
         addSpacer(contentColumn)
         val tasksCardText = when {
@@ -280,7 +306,7 @@ class PapillonTileService : TileService() {
           accentInt
         }
         contentColumn.addContent(
-          buildTileCard(context, tasksCardText, taskColor, launchClickable)
+          buildTileCard(context, listOf(TileLine(tasksCardText, Typography.TYPOGRAPHY_CAPTION1, Color.WHITE)), taskColor, launchClickable)
         )
       }
     }
@@ -309,12 +335,23 @@ class PapillonTileService : TileService() {
     )
   }
 
+  private data class TileLine(
+    val text: String,
+    val typography: Int,
+    val color: Int = Color.WHITE
+  )
+
+  private fun formatCompactTimeRange(fromMs: Long, toMs: Long): String {
+    val start = WearFormatters.formatHour(fromMs)
+    val end = if (toMs > fromMs) WearFormatters.formatHour(toMs) else ""
+    return if (end.isNotEmpty()) "$start–$end" else start
+  }
+
   private fun buildTileCard(
     context: Context,
-    text: String,
+    lines: List<TileLine>,
     accentColor: Int,
-    clickable: ModifiersBuilders.Clickable,
-    maxLines: Int = 2
+    clickable: ModifiersBuilders.Clickable
   ): LayoutElementBuilders.LayoutElement {
     val bgColor = Color.argb(
       52,
@@ -322,6 +359,21 @@ class PapillonTileService : TileService() {
       Color.green(accentColor),
       Color.blue(accentColor)
     )
+    val columnBuilder = LayoutElementBuilders.Column.Builder()
+      .setWidth(expand())
+      .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+
+    lines.forEach { line ->
+      columnBuilder.addContent(
+        Text.Builder(context, line.text)
+          .setTypography(line.typography)
+          .setColor(argb(line.color))
+          .setMaxLines(1)
+          .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
+          .build()
+      )
+    }
+
     return LayoutElementBuilders.Box.Builder()
       .setWidth(expand())
       .setHeight(wrap())
@@ -349,13 +401,7 @@ class PapillonTileService : TileService() {
           )
           .build()
       )
-      .addContent(
-        Text.Builder(context, text)
-          .setTypography(Typography.TYPOGRAPHY_CAPTION1)
-          .setColor(argb(Color.WHITE))
-          .setMaxLines(maxLines)
-          .build()
-      )
+      .addContent(columnBuilder.build())
       .build()
   }
 }
