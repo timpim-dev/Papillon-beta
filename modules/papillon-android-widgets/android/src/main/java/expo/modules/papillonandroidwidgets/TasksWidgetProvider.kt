@@ -81,11 +81,13 @@ class TasksWidgetProvider : AppWidgetProvider() {
             0,
             isNight,
             R.id.task_1_container,
-            R.id.task_1_emoji,
+            R.id.task_1_bg,
+            R.id.task_1_color,
             R.id.task_1_subject,
             R.id.task_1_due,
             R.id.task_1_description,
-            R.id.task_1_check_btn
+            R.id.task_1_check_btn,
+            R.id.task_1_check_icon
           )
           bindTaskRow(
             context,
@@ -94,11 +96,13 @@ class TasksWidgetProvider : AppWidgetProvider() {
             1,
             isNight,
             R.id.task_2_container,
-            R.id.task_2_emoji,
+            R.id.task_2_bg,
+            R.id.task_2_color,
             R.id.task_2_subject,
             R.id.task_2_due,
             R.id.task_2_description,
-            R.id.task_2_check_btn
+            R.id.task_2_check_btn,
+            R.id.task_2_check_icon
           )
           bindTaskRow(
             context,
@@ -107,11 +111,13 @@ class TasksWidgetProvider : AppWidgetProvider() {
             2,
             isNight,
             R.id.task_3_container,
-            R.id.task_3_emoji,
+            R.id.task_3_bg,
+            R.id.task_3_color,
             R.id.task_3_subject,
             R.id.task_3_due,
             R.id.task_3_description,
-            R.id.task_3_check_btn
+            R.id.task_3_check_btn,
+            R.id.task_3_check_icon
           )
         }
 
@@ -126,11 +132,13 @@ class TasksWidgetProvider : AppWidgetProvider() {
       rowIndex: Int,
       isNight: Boolean,
       containerId: Int,
-      emojiId: Int,
+      bgId: Int,
+      colorId: Int,
       subjectId: Int,
       dueId: Int,
       descriptionId: Int,
       checkBtnId: Int,
+      checkIconId: Int,
     ) {
       if (task == null) {
         views.setViewVisibility(containerId, View.GONE)
@@ -138,15 +146,18 @@ class TasksWidgetProvider : AppWidgetProvider() {
       }
       views.setViewVisibility(containerId, View.VISIBLE)
 
-      val subjectColor = WidgetStore.adjustColor(task.color, if (isNight) 0.30f else -0.30f)
-      views.setTextColor(subjectId, subjectColor)
+      val bgTint = WidgetStore.adjustColor(task.color, if (isNight) -0.70f else 0.75f)
+      val subjectColor = WidgetStore.adjustColor(task.color, if (isNight) 0.15f else -0.15f)
+      val dueColor = WidgetStore.withAlpha(subjectColor, 0.78f)
+      val descColor = WidgetStore.withAlpha(subjectColor, 0.92f)
 
-      if (!task.emoji.isNullOrBlank()) {
-        views.setViewVisibility(emojiId, View.VISIBLE)
-        views.setTextViewText(emojiId, task.emoji)
-      } else {
-        views.setViewVisibility(emojiId, View.GONE)
-      }
+      views.setInt(bgId, "setColorFilter", bgTint)
+      views.setInt(colorId, "setColorFilter", subjectColor)
+      views.setTextColor(subjectId, subjectColor)
+      views.setTextColor(dueId, dueColor)
+      views.setTextColor(descriptionId, descColor)
+      views.setInt(checkIconId, "setColorFilter", subjectColor)
+
       views.setTextViewText(subjectId, task.subject)
       views.setTextViewText(dueId, WidgetStore.formatRelativeDistanceDay(task.dueDate))
       views.setTextViewText(descriptionId, task.description.ifBlank { "Devoir à faire" })

@@ -5,20 +5,21 @@
   android:layout_height="match_parent"
   android:background="@drawable/widget_background"
   android:orientation="vertical"
-  android:padding="14dp">
+  android:paddingHorizontal="12dp"
+  android:paddingVertical="8dp">
 
   <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingBottom="10dp">
+    android:paddingBottom="6dp">
 
     <ImageView
       android:id="@+id/widget_header_icon"
-      android:layout_width="18dp"
-      android:layout_height="18dp"
-      android:layout_marginEnd="8dp"
+      android:layout_width="16dp"
+      android:layout_height="16dp"
+      android:layout_marginEnd="6dp"
       android:contentDescription="@null"
       android:src="@drawable/ic_widget_tasks"
       android:tint="@color/papillon_widget_text_secondary" />
@@ -30,10 +31,11 @@
       android:layout_weight="1"
       android:ellipsize="end"
       android:fontFamily="sans-serif-medium"
+      android:includeFontPadding="false"
       android:maxLines="1"
       android:text="@string/widget_tasks_title"
       android:textColor="@color/papillon_widget_text_secondary"
-      android:textSize="14sp"
+      android:textSize="13sp"
       android:textStyle="bold" />
 
     <LinearLayout
@@ -43,22 +45,23 @@
       android:background="@drawable/widget_neutral_pill"
       android:gravity="center_vertical"
       android:orientation="horizontal"
-      android:paddingHorizontal="10dp"
-      android:paddingVertical="5dp">
+      android:paddingHorizontal="9dp"
+      android:paddingVertical="4dp">
 
       <TextView
         android:id="@+id/widget_header_badge_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif-medium"
+        android:includeFontPadding="false"
         android:text="@string/widget_see_more"
         android:textColor="@color/papillon_widget_text_secondary"
-        android:textSize="11.5sp"
+        android:textSize="11sp"
         android:textStyle="bold" />
 
       <ImageView
-        android:layout_width="12dp"
-        android:layout_height="12dp"
+        android:layout_width="11dp"
+        android:layout_height="11dp"
         android:layout_marginStart="4dp"
         android:contentDescription="@null"
         android:src="@drawable/ic_widget_arrow_up_right"
@@ -77,251 +80,293 @@
     android:textSize="13sp"
     android:visibility="gone" />
 
-  <LinearLayout
+  <FrameLayout
     android:id="@+id/task_1_container"
     android:layout_width="match_parent"
     android:layout_height="0dp"
-    android:layout_weight="1"
-    android:background="@drawable/widget_task_card_bg"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="10dp">
+    android:layout_weight="1">
+
+    <ImageView
+      android:id="@+id/task_1_bg"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:contentDescription="@null"
+      android:scaleType="fitXY"
+      android:src="@drawable/widget_item_tintable" />
 
     <LinearLayout
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:layout_weight="1"
-      android:orientation="vertical"
-      android:paddingEnd="10dp">
-
-      <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-          android:id="@+id/task_1_emoji"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginEnd="5dp"
-          android:textSize="13sp" />
-
-        <TextView
-          android:id="@+id/task_1_subject"
-          android:layout_width="0dp"
-          android:layout_height="wrap_content"
-          android:layout_weight="1"
-          android:ellipsize="end"
-          android:fontFamily="sans-serif-medium"
-          android:maxLines="1"
-          android:textSize="12.5sp"
-          android:textStyle="bold" />
-
-        <TextView
-          android:id="@+id/task_1_due"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginStart="6dp"
-          android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_secondary"
-          android:textSize="11sp" />
-      </LinearLayout>
-
-      <TextView
-        android:id="@+id/task_1_description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="2"
-        android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="13.5sp"
-        android:textStyle="bold" />
-    </LinearLayout>
-
-    <FrameLayout
-      android:id="@+id/task_1_check_btn"
-      android:layout_width="32dp"
-      android:layout_height="32dp"
-      android:background="@drawable/widget_check_circle">
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingHorizontal="10dp"
+      android:paddingVertical="3dp">
 
       <ImageView
-        android:id="@+id/task_1_check_icon"
-        android:layout_width="15dp"
-        android:layout_height="15dp"
-        android:layout_gravity="center"
+        android:id="@+id/task_1_color"
+        android:layout_width="4.5dp"
+        android:layout_height="match_parent"
+        android:layout_marginEnd="9dp"
         android:contentDescription="@null"
-        android:src="@drawable/ic_widget_check"
-        android:tint="@color/papillon_widget_text_secondary" />
-    </FrameLayout>
-  </LinearLayout>
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_color_bar" />
 
-  <LinearLayout
+      <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingEnd="8dp">
+
+        <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+
+          <TextView
+            android:id="@+id/task_1_subject"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+          <TextView
+            android:id="@+id/task_1_due"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="10.5sp" />
+        </LinearLayout>
+
+        <TextView
+          android:id="@+id/task_1_description"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="1dp"
+          android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
+          android:includeFontPadding="false"
+          android:maxLines="1"
+          android:textSize="11.5sp"
+          android:textStyle="bold" />
+      </LinearLayout>
+
+      <FrameLayout
+        android:id="@+id/task_1_check_btn"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:background="@drawable/widget_check_circle">
+
+        <ImageView
+          android:id="@+id/task_1_check_icon"
+          android:layout_width="13dp"
+          android:layout_height="13dp"
+          android:layout_gravity="center"
+          android:contentDescription="@null"
+          android:src="@drawable/ic_widget_check" />
+      </FrameLayout>
+    </LinearLayout>
+  </FrameLayout>
+
+  <FrameLayout
     android:id="@+id/task_2_container"
     android:layout_width="match_parent"
     android:layout_height="0dp"
-    android:layout_marginTop="7dp"
-    android:layout_weight="1"
-    android:background="@drawable/widget_task_card_bg"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="10dp">
+    android:layout_marginTop="4dp"
+    android:layout_weight="1">
+
+    <ImageView
+      android:id="@+id/task_2_bg"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:contentDescription="@null"
+      android:scaleType="fitXY"
+      android:src="@drawable/widget_item_tintable" />
 
     <LinearLayout
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:layout_weight="1"
-      android:orientation="vertical"
-      android:paddingEnd="10dp">
-
-      <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-          android:id="@+id/task_2_emoji"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginEnd="5dp"
-          android:textSize="13sp" />
-
-        <TextView
-          android:id="@+id/task_2_subject"
-          android:layout_width="0dp"
-          android:layout_height="wrap_content"
-          android:layout_weight="1"
-          android:ellipsize="end"
-          android:fontFamily="sans-serif-medium"
-          android:maxLines="1"
-          android:textSize="12.5sp"
-          android:textStyle="bold" />
-
-        <TextView
-          android:id="@+id/task_2_due"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginStart="6dp"
-          android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_secondary"
-          android:textSize="11sp" />
-      </LinearLayout>
-
-      <TextView
-        android:id="@+id/task_2_description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="2"
-        android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="13.5sp"
-        android:textStyle="bold" />
-    </LinearLayout>
-
-    <FrameLayout
-      android:id="@+id/task_2_check_btn"
-      android:layout_width="32dp"
-      android:layout_height="32dp"
-      android:background="@drawable/widget_check_circle">
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingHorizontal="10dp"
+      android:paddingVertical="3dp">
 
       <ImageView
-        android:id="@+id/task_2_check_icon"
-        android:layout_width="15dp"
-        android:layout_height="15dp"
-        android:layout_gravity="center"
+        android:id="@+id/task_2_color"
+        android:layout_width="4.5dp"
+        android:layout_height="match_parent"
+        android:layout_marginEnd="9dp"
         android:contentDescription="@null"
-        android:src="@drawable/ic_widget_check"
-        android:tint="@color/papillon_widget_text_secondary" />
-    </FrameLayout>
-  </LinearLayout>
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_color_bar" />
 
-  <LinearLayout
+      <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingEnd="8dp">
+
+        <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+
+          <TextView
+            android:id="@+id/task_2_subject"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+          <TextView
+            android:id="@+id/task_2_due"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="10.5sp" />
+        </LinearLayout>
+
+        <TextView
+          android:id="@+id/task_2_description"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="1dp"
+          android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
+          android:includeFontPadding="false"
+          android:maxLines="1"
+          android:textSize="11.5sp"
+          android:textStyle="bold" />
+      </LinearLayout>
+
+      <FrameLayout
+        android:id="@+id/task_2_check_btn"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:background="@drawable/widget_check_circle">
+
+        <ImageView
+          android:id="@+id/task_2_check_icon"
+          android:layout_width="13dp"
+          android:layout_height="13dp"
+          android:layout_gravity="center"
+          android:contentDescription="@null"
+          android:src="@drawable/ic_widget_check" />
+      </FrameLayout>
+    </LinearLayout>
+  </FrameLayout>
+
+  <FrameLayout
     android:id="@+id/task_3_container"
     android:layout_width="match_parent"
     android:layout_height="0dp"
-    android:layout_marginTop="7dp"
-    android:layout_weight="1"
-    android:background="@drawable/widget_task_card_bg"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingHorizontal="12dp"
-    android:paddingVertical="10dp">
+    android:layout_marginTop="4dp"
+    android:layout_weight="1">
+
+    <ImageView
+      android:id="@+id/task_3_bg"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:contentDescription="@null"
+      android:scaleType="fitXY"
+      android:src="@drawable/widget_item_tintable" />
 
     <LinearLayout
-      android:layout_width="0dp"
-      android:layout_height="wrap_content"
-      android:layout_weight="1"
-      android:orientation="vertical"
-      android:paddingEnd="10dp">
-
-      <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-          android:id="@+id/task_3_emoji"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginEnd="5dp"
-          android:textSize="13sp" />
-
-        <TextView
-          android:id="@+id/task_3_subject"
-          android:layout_width="0dp"
-          android:layout_height="wrap_content"
-          android:layout_weight="1"
-          android:ellipsize="end"
-          android:fontFamily="sans-serif-medium"
-          android:maxLines="1"
-          android:textSize="12.5sp"
-          android:textStyle="bold" />
-
-        <TextView
-          android:id="@+id/task_3_due"
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:layout_marginStart="6dp"
-          android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_secondary"
-          android:textSize="11sp" />
-      </LinearLayout>
-
-      <TextView
-        android:id="@+id/task_3_description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:ellipsize="end"
-        android:fontFamily="sans-serif-medium"
-        android:maxLines="2"
-        android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="13.5sp"
-        android:textStyle="bold" />
-    </LinearLayout>
-
-    <FrameLayout
-      android:id="@+id/task_3_check_btn"
-      android:layout_width="32dp"
-      android:layout_height="32dp"
-      android:background="@drawable/widget_check_circle">
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:paddingHorizontal="10dp"
+      android:paddingVertical="3dp">
 
       <ImageView
-        android:id="@+id/task_3_check_icon"
-        android:layout_width="15dp"
-        android:layout_height="15dp"
-        android:layout_gravity="center"
+        android:id="@+id/task_3_color"
+        android:layout_width="4.5dp"
+        android:layout_height="match_parent"
+        android:layout_marginEnd="9dp"
         android:contentDescription="@null"
-        android:src="@drawable/ic_widget_check"
-        android:tint="@color/papillon_widget_text_secondary" />
-    </FrameLayout>
-  </LinearLayout>
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_color_bar" />
+
+      <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingEnd="8dp">
+
+        <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:gravity="center_vertical"
+          android:orientation="horizontal">
+
+          <TextView
+            android:id="@+id/task_3_subject"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+          <TextView
+            android:id="@+id/task_3_due"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="10.5sp" />
+        </LinearLayout>
+
+        <TextView
+          android:id="@+id/task_3_description"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="1dp"
+          android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
+          android:includeFontPadding="false"
+          android:maxLines="1"
+          android:textSize="11.5sp"
+          android:textStyle="bold" />
+      </LinearLayout>
+
+      <FrameLayout
+        android:id="@+id/task_3_check_btn"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:background="@drawable/widget_check_circle">
+
+        <ImageView
+          android:id="@+id/task_3_check_icon"
+          android:layout_width="13dp"
+          android:layout_height="13dp"
+          android:layout_gravity="center"
+          android:contentDescription="@null"
+          android:src="@drawable/ic_widget_check" />
+      </FrameLayout>
+    </LinearLayout>
+  </FrameLayout>
 </LinearLayout>

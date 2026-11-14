@@ -83,14 +83,7 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             R.id.course_1_end,
             R.id.course_1_bg,
             R.id.course_1_color,
-            R.id.course_1_subject,
-            R.id.course_1_pin_icon,
-            R.id.course_1_room,
-            R.id.course_1_sep,
-            R.id.course_1_teacher_container,
-            R.id.course_1_user_icon,
-            R.id.course_1_teacher,
-            R.id.course_1_duration
+            R.id.course_1_subject
           )
           bindCourseRow(
             views,
@@ -101,14 +94,7 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             R.id.course_2_end,
             R.id.course_2_bg,
             R.id.course_2_color,
-            R.id.course_2_subject,
-            R.id.course_2_pin_icon,
-            R.id.course_2_room,
-            R.id.course_2_sep,
-            R.id.course_2_teacher_container,
-            R.id.course_2_user_icon,
-            R.id.course_2_teacher,
-            R.id.course_2_duration
+            R.id.course_2_subject
           )
           bindCourseRow(
             views,
@@ -119,14 +105,7 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
             R.id.course_3_end,
             R.id.course_3_bg,
             R.id.course_3_color,
-            R.id.course_3_subject,
-            R.id.course_3_pin_icon,
-            R.id.course_3_room,
-            R.id.course_3_sep,
-            R.id.course_3_teacher_container,
-            R.id.course_3_user_icon,
-            R.id.course_3_teacher,
-            R.id.course_3_duration
+            R.id.course_3_subject
           )
         }
 
@@ -144,13 +123,6 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
       bgId: Int,
       colorId: Int,
       subjectId: Int,
-      pinIconId: Int,
-      roomId: Int,
-      sepId: Int,
-      teacherContainerId: Int,
-      userIconId: Int,
-      teacherId: Int,
-      durationId: Int,
     ) {
       if (course == null) {
         views.setViewVisibility(containerId, View.GONE)
@@ -166,21 +138,15 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
       val textColor = if (course.isCanceled) {
         if (isNight) Color.parseColor("#E57373") else Color.parseColor("#DC1400")
       } else {
-        WidgetStore.adjustColor(course.color, if (isNight) 0.10f else -0.15f)
+        WidgetStore.adjustColor(course.color, if (isNight) 0.15f else -0.15f)
       }
-      val metaTextColor = WidgetStore.withAlpha(textColor, 0.90f)
-      val sepColor = WidgetStore.withAlpha(textColor, 0.50f)
-      val durationColor = WidgetStore.withAlpha(textColor, 0.85f)
+      val endTimeColor = WidgetStore.withAlpha(textColor, 0.80f)
 
       views.setInt(bgId, "setColorFilter", bgTint)
       views.setInt(colorId, "setColorFilter", textColor)
+      views.setTextColor(startId, textColor)
+      views.setTextColor(endId, endTimeColor)
       views.setTextColor(subjectId, textColor)
-      views.setInt(pinIconId, "setColorFilter", metaTextColor)
-      views.setTextColor(roomId, metaTextColor)
-      views.setTextColor(sepId, sepColor)
-      views.setInt(userIconId, "setColorFilter", metaTextColor)
-      views.setTextColor(teacherId, metaTextColor)
-      views.setTextColor(durationId, durationColor)
 
       views.setTextViewText(startId, WidgetStore.formatHourMinute(course.from))
       views.setTextViewText(endId, WidgetStore.formatHourMinute(course.to))
@@ -188,35 +154,6 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
         subjectId,
         if (course.isCanceled) "${course.subject} (Annulé)" else course.subject
       )
-
-      val room = course.room?.trim()?.takeIf { it.isNotEmpty() }
-      val teacher = course.teacher?.trim()?.takeIf { it.isNotEmpty() }
-
-      if (room != null) {
-        views.setViewVisibility(pinIconId, View.VISIBLE)
-        views.setViewVisibility(roomId, View.VISIBLE)
-        views.setTextViewText(roomId, room)
-      } else if (teacher == null) {
-        views.setViewVisibility(pinIconId, View.GONE)
-        views.setViewVisibility(roomId, View.VISIBLE)
-        views.setTextViewText(roomId, "Cours prévu")
-      } else {
-        views.setViewVisibility(pinIconId, View.GONE)
-        views.setViewVisibility(roomId, View.GONE)
-      }
-
-      if (teacher != null) {
-        views.setViewVisibility(teacherContainerId, View.VISIBLE)
-        views.setTextViewText(teacherId, teacher)
-      } else {
-        views.setViewVisibility(teacherContainerId, View.GONE)
-      }
-
-      views.setViewVisibility(
-        sepId,
-        if (room != null && teacher != null) View.VISIBLE else View.GONE
-      )
-      views.setTextViewText(durationId, WidgetStore.formatDuration(course.from, course.to))
     }
   }
 }
