@@ -1,0 +1,513 @@
+[
+  {
+    "id": "ppusers00000001",
+    "name": "pp_users",
+    "type": "base",
+    "system": false,
+    "listRule": "opt_in_leaderboards = true",
+    "viewRule": "opt_in_leaderboards = true",
+    "createRule": "",
+    "updateRule": "pronote_hash != \"\" && @request.body.pronote_hash:isset = false",
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": true,
+        "id": "ppuserpronote01",
+        "max": 128,
+        "min": 32,
+        "name": "pronote_hash",
+        "pattern": "^[a-f0-9]+$",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppuserpseudo002",
+        "max": 32,
+        "min": 2,
+        "name": "pseudo",
+        "pattern": "",
+        "presentable": true,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppuseravatar003",
+        "max": 12,
+        "min": 0,
+        "name": "avatar_emoji",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppuserschool004",
+        "max": 120,
+        "min": 0,
+        "name": "school_name",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppusercity00005",
+        "max": 80,
+        "min": 0,
+        "name": "city",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "[A-Z0-9]{8}",
+        "hidden": false,
+        "id": "ppuserfcode0006",
+        "max": 16,
+        "min": 6,
+        "name": "friend_code",
+        "pattern": "^[A-Z0-9-]+$",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "ppuserpoints007",
+        "max": null,
+        "min": 0,
+        "name": "points_total",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "ppuserstreak008",
+        "max": null,
+        "min": 0,
+        "name": "streak_days",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "ppuserrewards09",
+        "maxSize": 65536,
+        "name": "unlocked_rewards",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppuserbadge0010",
+        "max": 48,
+        "min": 0,
+        "name": "equipped_badge",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "ppuseroptin0011",
+        "name": "opt_in_leaderboards",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "bool"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppuserappver012",
+        "max": 32,
+        "min": 0,
+        "name": "app_version",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_pp_users_pronote_hash` ON `pp_users` (`pronote_hash`)",
+      "CREATE UNIQUE INDEX `idx_pp_users_friend_code` ON `pp_users` (`friend_code`)",
+      "CREATE INDEX `idx_pp_users_school_points` ON `pp_users` (`school_name`, `points_total`)",
+      "CREATE INDEX `idx_pp_users_city_points` ON `pp_users` (`city`, `points_total`)"
+    ]
+  },
+  {
+    "id": "ppfriendships01",
+    "name": "pp_friendships",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210257",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "ppusers00000001",
+        "hidden": false,
+        "id": "ppfrrequester01",
+        "maxSelect": 1,
+        "minSelect": 1,
+        "name": "requester_id",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "ppusers00000001",
+        "hidden": false,
+        "id": "ppfraddressee02",
+        "maxSelect": 1,
+        "minSelect": 1,
+        "name": "addressee_id",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "ppfrstatus00003",
+        "maxSelect": 1,
+        "name": "status",
+        "presentable": true,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "pending",
+          "accepted",
+          "blocked"
+        ]
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "ppfrpairkey0004",
+        "max": 64,
+        "min": 10,
+        "name": "pair_key",
+        "pattern": "^[a-z0-9_]+$",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389177",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085496",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_pp_friendships_pair` ON `pp_friendships` (`pair_key`)"
+    ]
+  },
+  {
+    "id": "pppointevents01",
+    "name": "pp_point_events",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": null,
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210258",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "ppusers00000001",
+        "hidden": false,
+        "id": "pppeuserid00001",
+        "maxSelect": 1,
+        "minSelect": 1,
+        "name": "user_id",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "pppeeventtype02",
+        "maxSelect": 1,
+        "name": "event_type",
+        "presentable": true,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "homework_done",
+          "streak_bonus",
+          "friend_added",
+          "share_app",
+          "daily_check",
+          "achievement"
+        ]
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "pppeeventkey003",
+        "max": 128,
+        "min": 4,
+        "name": "event_key",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "pppepointsdel04",
+        "max": 500,
+        "min": 1,
+        "name": "points_delta",
+        "onlyInt": true,
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "pppemetadata005",
+        "maxSize": 16384,
+        "name": "metadata",
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "json"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389178",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_pp_point_events_key` ON `pp_point_events` (`event_key`)",
+      "CREATE INDEX `idx_pp_point_events_user` ON `pp_point_events` (`user_id`, `created`)"
+    ]
+  },
+  {
+    "id": "ppsharestats001",
+    "name": "pp_share_stats",
+    "type": "base",
+    "system": false,
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": null,
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210259",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "cascadeDelete": true,
+        "collectionId": "ppusers00000001",
+        "hidden": false,
+        "id": "ppssuserid00001",
+        "maxSelect": 1,
+        "minSelect": 1,
+        "name": "user_id",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "ppsschannel0002",
+        "maxSelect": 1,
+        "name": "channel",
+        "presentable": true,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "phone_qr",
+          "watch_qr",
+          "link_share"
+        ]
+      },
+      {
+        "hidden": false,
+        "id": "ppsscount000003",
+        "max": null,
+        "min": 0,
+        "name": "share_count",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389179",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085497",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_pp_share_user_channel` ON `pp_share_stats` (`user_id`, `channel`)"
+    ]
+  }
+]
