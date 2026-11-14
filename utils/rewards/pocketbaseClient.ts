@@ -1,6 +1,7 @@
 import * as Crypto from "expo-crypto";
 
 import type { Account } from "@/stores/account/types";
+import { formatSchoolName } from "@/utils/format/formatSchoolName";
 import { computeUnlockedRewards } from "./rewardsCatalog";
 
 export const DEFAULT_POCKETBASE_URL = "https://pocketbase.felixx.dev";
@@ -87,6 +88,77 @@ export function generateFriendCode(seed?: string): string {
     out += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
   return out;
+}
+
+export interface PronoteRewardsProfile {
+  pseudo: string;
+  schoolName: string;
+  city: string;
+}
+
+const NON_CITY_SUFFIXES = new Set([
+  "esrp",
+  "cfa",
+  "sep",
+  "lycée",
+  "lycee",
+  "collège",
+  "college",
+  "campus",
+  "section",
+  "site",
+]);
+
+function extractCityFromString(text: string): string {
+  const cleaned = text.trim();
+  if (!cleaned) return "";
+
+  const postalCity = cleaned.match(/\b\d{5}\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ''\-\s]{1,40})(?=,|$)/);
+  if (postalCity?.[1]) {
+    return formatSchoolName(postalCity[1].trim());
+  }
+
+  const parenCity = cleaned.match(/\(([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ''\-\s]{1,35})\)\s*$/);
+  if (parenCity?.[1]) {
+    return formatSchoolName(parenCity[1].trim());
+  }
+
+  const normalized = formatSchoolName(cleaned);
+  const parts = normalized.split(" - ").map(p => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const candidate = parts[parts.length - 1];
+    const wordCount = candidate.split(/\s+/).length;
+    const firstWord = candidate.split(/\s+/)[0]?.toLowerCase() ?? "";
+    if (wordCount <= 3 && !NON_CITY_SUFFIXES.has(firstWord)) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
+export function extractPronoteRewardsProfile(account?: Account): PronoteRewardsProfile {
+  const first = account?.firstName?.trim() ?? "";
+  const pseudo = first || "Élève Papillon";
+  const rawSchool = account?.schoolName?.trim() ?? "";
+  const schoolName = formatSchoolName(rawSchool);
+
+  const transportAddress = account?.transport?.schoolAddress;
+  const addressCandidates =
+    typeof transportAddress === "string"
+      ? [transportAddress]
+      : [transportAddress?.address, transportAddress?.secondTitle];
+
+  const addressCity =
+    addressCandidates
+      .map(candidate => extractCityFromString(candidate ?? ""))
+      .find(Boolean) ?? "";
+  const schoolCity = extractCityFromString(rawSchool);
+
+  return {
+    pseudo,
+    schoolName,
+    city: addressCity || schoolCity,
+  };
 }
 
 export function buildPronoteIdentityInput(account?: Account): string {

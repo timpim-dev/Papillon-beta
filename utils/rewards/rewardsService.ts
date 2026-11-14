@@ -3,12 +3,14 @@ import { createMMKV } from "react-native-mmkv";
 import packageJson from "@/package.json";
 import { useAccountStore } from "@/stores/account";
 import { useSettingsStore } from "@/stores/settings";
+import { GeographicQuerying } from "@/utils/native/georeverse";
 
 import {
   addOrAcceptFriend,
   awardPointEvent,
   computePronoteHash,
   DEFAULT_POCKETBASE_URL,
+  extractPronoteRewardsProfile,
   fetchLeaderboard,
   LeaderboardScope,
   PointEventType,
@@ -111,6 +113,26 @@ export async function ensureRewardsUserSynced(overrides?: {
   if (!activeAccount) return null;
 
   const cached = getCachedRewardsUser();
+  const pronoteProfile = extractPronoteRewardsProfile(activeAccount);
+  let resolvedCity =
+    overrides?.city ??
+    ((cached?.city && cached.city.trim()) || pronoteProfile.city);
+
+  if (!resolvedCity && pronoteProfile.schoolName) {
+    try {
+      const geo = await GeographicQuerying(pronoteProfile.schoolName, 1);
+      if (geo?.city) {
+        resolvedCity = geo.city;
+      }
+    } catch {
+      // Offline / geocoder unavailable
+    }
+  }
+
+  const resolvedSchool =
+    overrides?.schoolName ??
+    ((cached?.school_name && cached.school_name.trim()) || pronoteProfile.schoolName);
+
   const pronoteHash = await computePronoteHash(activeAccount);
   const pbUrl = getPbUrl();
 
@@ -120,35 +142,43 @@ export async function ensureRewardsUserSynced(overrides?: {
     pseudo:
       overrides?.pseudo ??
       cached?.pseudo ??
-      activeAccount.firstName ??
-      "Élève Papillon",
+      pronoteProfile.pseudo,
     avatarEmoji: overrides?.avatarEmoji ?? cached?.avatar_emoji ?? "🦋",
-    schoolName:
-      overrides?.schoolName ??
-      cached?.school_name ??
-      activeAccount.schoolName ??
-      "",
-    city: overrides?.city ?? cached?.city ?? "",
+    schoolName: resolvedSchool,
+    city: resolvedCity,
     optInLeaderboards: true,
     appVersion: String(packageJson.version ?? "1.0.0"),
   });
 
-  if (
-    overrides &&
-    (overrides.pseudo !== undefined ||
-      overrides.city !== undefined ||
-      overrides.schoolName !== undefined ||
-      overrides.optInLeaderboards !== undefined ||
-      overrides.avatarEmoji !== undefined)
-  ) {
+  const needsProfilePatch =
+    Boolean(
+      overrides &&
+        (overrides.pseudo !== undefined ||
+          overrides.city !== undefined ||
+          overrides.schoolName !== undefined ||
+          overrides.optInLeaderboards !== undefined ||
+          overrides.avatarEmoji !== undefined)
+    ) ||
+    (!synced.school_name && Boolean(resolvedSchool)) ||
+    (!synced.city && Boolean(resolvedCity));
+
+  if (needsProfilePatch) {
     const updated = await updateUserProfile(pbUrl, synced.id, {
-      ...(overrides.pseudo !== undefined ? { pseudo: overrides.pseudo.trim() } : {}),
-      ...(overrides.city !== undefined ? { city: overrides.city.trim() } : {}),
-      ...(overrides.schoolName !== undefined ? { school_name: overrides.schoolName.trim() } : {}),
-      ...(overrides.optInLeaderboards !== undefined
+      ...(overrides?.pseudo !== undefined ? { pseudo: overrides.pseudo.trim() } : {}),
+      ...(overrides?.city !== undefined
+        ? { city: overrides.city.trim() }
+        : !synced.city && resolvedCity
+          ? { city: resolvedCity }
+          : {}),
+      ...(overrides?.schoolName !== undefined
+        ? { school_name: overrides.schoolName.trim() }
+        : !synced.school_name && resolvedSchool
+          ? { school_name: resolvedSchool }
+          : {}),
+      ...(overrides?.optInLeaderboards !== undefined
         ? { opt_in_leaderboards: overrides.optInLeaderboards }
         : {}),
-      ...(overrides.avatarEmoji !== undefined ? { avatar_emoji: overrides.avatarEmoji } : {}),
+      ...(overrides?.avatarEmoji !== undefined ? { avatar_emoji: overrides.avatarEmoji } : {}),
       app_version: String(packageJson.version ?? "1.0.0"),
     });
     const finalUser = updated ?? synced;

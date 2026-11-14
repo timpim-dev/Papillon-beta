@@ -13,7 +13,10 @@ import packageJson from "@/package.json";
 import { useAccountStore } from "@/stores/account";
 import { useSettingsStore } from "@/stores/settings";
 import Typography from "@/ui/new/Typography";
-import { shouldShowRewardsOptInPopup } from "@/utils/rewards/pocketbaseClient";
+import {
+  extractPronoteRewardsProfile,
+  shouldShowRewardsOptInPopup,
+} from "@/utils/rewards/pocketbaseClient";
 import { ensureRewardsUserSynced } from "@/utils/rewards/rewardsService";
 
 export default function RewardsOptInModal() {
@@ -28,8 +31,8 @@ export default function RewardsOptInModal() {
 
   const [visible, setVisible] = useState(false);
   const [pseudo, setPseudo] = useState("");
-  const [city, setCity] = useState("");
   const [saving, setSaving] = useState(false);
+  const pronoteProfile = extractPronoteRewardsProfile(activeAccount);
 
   useEffect(() => {
     const currentVersion = String(packageJson.version ?? "1.0.0");
@@ -41,7 +44,7 @@ export default function RewardsOptInModal() {
       rewardsLastPromptVersion: personalization.rewardsLastPromptVersion,
     });
     if (shouldShow) {
-      setPseudo(activeAccount?.firstName || "Élève Papillon");
+      setPseudo(pronoteProfile.pseudo);
       setVisible(true);
     }
   }, [
@@ -49,6 +52,7 @@ export default function RewardsOptInModal() {
     personalization.rewardsOptIn,
     personalization.rewardsAppOpenCount,
     personalization.rewardsLastPromptVersion,
+    pronoteProfile.pseudo,
   ]);
 
   if (!visible) return null;
@@ -63,8 +67,7 @@ export default function RewardsOptInModal() {
         rewardsLastPromptVersion: currentVersion,
       });
       await ensureRewardsUserSynced({
-        pseudo: pseudo.trim() || activeAccount?.firstName || "Élève Papillon",
-        city: city.trim(),
+        pseudo: pseudo.trim() || pronoteProfile.pseudo,
         optInLeaderboards: true,
       });
       setVisible(false);
@@ -131,22 +134,23 @@ export default function RewardsOptInModal() {
             }}
           />
 
-          <TextInput
-            value={city}
-            onChangeText={setCity}
-            placeholder="Ville (optionnel, pour le classement local)"
-            placeholderTextColor={String(colors.text) + "66"}
-            maxLength={60}
-            style={{
-              backgroundColor: colors.background,
-              color: colors.text,
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 11,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          />
+          {(pronoteProfile.schoolName || pronoteProfile.city) && (
+            <View
+              style={{
+                backgroundColor: colors.background,
+                borderRadius: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Typography variant="caption" color="textSecondary">
+                Infos détectées depuis Pronote :{" "}
+                {[pronoteProfile.schoolName, pronoteProfile.city].filter(Boolean).join(" • ")}
+              </Typography>
+            </View>
+          )}
 
           <TouchableOpacity
             disabled={saving}

@@ -48,12 +48,6 @@ const SettingsTabs = () => {
       icon: "textbubble",
       enabled: !disabledTabs.includes("communications"),
     },
-    {
-      id: "ai",
-      name: t("Tab_AI", { defaultValue: "Assistant IA" }),
-      icon: "sparkles",
-      enabled: !disabledTabs.includes("ai"),
-    },
   ];
 
   const toggleTab = (tabId: string) => {

@@ -210,6 +210,16 @@ function RootNavigatorContent() {
         />
 
         <Stack.Screen
+          name="(features)/menu"
+          options={{
+            headerShown: false,
+            headerTitle: t("Home_Menu_Button_Title"),
+            headerTransparent: runsIOS26,
+            presentation: "modal",
+          }}
+        />
+
+        <Stack.Screen
           name="(features)/(cards)/cards"
           options={{
             headerShown: false,

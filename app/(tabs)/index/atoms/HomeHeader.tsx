@@ -5,7 +5,6 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Stack from '@/ui/components/Stack';
-import { useSettingsStore } from '@/stores/settings';
 import { getCurrentPeriod } from '@/utils/grades/helper/period';
 
 import HomeHeaderButton, { HomeHeaderButtonItem } from '../components/HomeHeaderButton';
@@ -14,12 +13,11 @@ import { useHomeHeaderData } from '../hooks/useHomeHeaderData';
 const HomeHeader = () => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { availableCanteenCards, attendancesPeriods, attendances, absencesCount, news } = useHomeHeaderData();
+  const { availableCanteenCards, attendancesPeriods, attendances, absencesCount, todayMenuMainDish, news } = useHomeHeaderData();
   const currentAttendancePeriod = attendancesPeriods.length > 0
     ? getCurrentPeriod(attendancesPeriods)
     : undefined;
 
-  const aiEnabled = useSettingsStore(s => s.personalization?.aiAssistantEnabled !== false);
   const HomeHeaderButtons: HomeHeaderButtonItem[] = useMemo(() => [
     {
       title: t("Home_Cards_Button_Title"),
@@ -36,8 +34,8 @@ const HomeHeader = () => {
       image: require("@/assets/shaded_icons/menu.png"),
       icon: "cutlery",
       color: "#46c700",
-      description: t("Home_Menu_Button_Description"),
-      route: "/(features)/soon"
+      description: todayMenuMainDish ?? t("Home_Menu_Button_Description"),
+      route: "/(features)/menu"
     },
     {
       title: t("Home_Attendance_Title"),
@@ -62,31 +60,7 @@ const HomeHeader = () => {
       description: news[0]?.title ?? t("News_Empty_Title"),
       route: "/(features)/(news)/news"
     },
-    {
-      title: "Messages",
-      image: require("@/assets/shaded_icons/actu.png"),
-      icon: "textbubble",
-      color: "#0EA5E9",
-      description: "Discussions & profs",
-      route: "/(features)/(communications)/communications"
-    },
-    ...(aiEnabled ? [{
-      title: "Assistant IA",
-      image: require("@/assets/shaded_icons/actu.png"),
-      icon: "sparkles",
-      color: "#7C3AED",
-      description: "Réviser sans tricher",
-      route: "/(features)/ai"
-    }] : []),
-    {
-      title: "Récompenses",
-      image: require("@/assets/shaded_icons/actu.png"),
-      icon: "crown",
-      color: "#F59E0B",
-      description: "Points, amis & badges",
-      route: "/(features)/(rewards)/rewards"
-    },
-  ], [availableCanteenCards, absencesCount, news, currentAttendancePeriod, attendancesPeriods, attendances, aiEnabled, t]);
+  ], [availableCanteenCards, absencesCount, todayMenuMainDish, news, currentAttendancePeriod, attendancesPeriods, attendances, t]);
 
   return (
     <View style={{ paddingHorizontal: 0, width: "100%", flex: 1, overflow: "visible" }}>

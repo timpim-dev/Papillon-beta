@@ -14,6 +14,7 @@ jest.mock("expo-crypto", () => ({
 import { computeUnlockedRewards } from "./rewardsCatalog";
 import {
   awardPointEvent,
+  extractPronoteRewardsProfile,
   makeFriendPairKey,
   shouldShowRewardsOptInPopup,
   updateUserProfile,
@@ -146,5 +147,40 @@ describe("pocketbaseClient pure helpers & HTTP safety", () => {
     expect(res.awarded).toBe(false);
     expect(res.newPointsTotal).toBe(30);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("extracts formatted Pronote school name and city automatically", () => {
+    const profile = extractPronoteRewardsProfile({
+      id: "acc1",
+      firstName: "Timotée",
+      lastName: "Pralon",
+      schoolName: "LYCEE JEAN MONNET - ANNEMASSE",
+      services: [],
+    } as never);
+
+    expect(profile.pseudo).toBe("Timotée");
+    expect(profile.schoolName).toBe("Lycee Jean Monnet - Annemasse");
+    expect(profile.city).toBe("Annemasse");
+
+    const fromAddress = extractPronoteRewardsProfile({
+      id: "acc2",
+      firstName: "Léa",
+      lastName: "Martin",
+      schoolName: "Lycée Ampère",
+      transport: {
+        enabled: true,
+        defaultApp: "maps",
+        schoolAddress: {
+          firstTitle: "Lycée Ampère",
+          secondTitle: "Lyon",
+          address: "12 Rue de la Bourse, 69002 LYON",
+          longitude: 4.83,
+          latitude: 45.76,
+        },
+      },
+      services: [],
+    } as never);
+    expect(fromAddress.schoolName).toBe("Lycée Ampère");
+    expect(fromAddress.city).toBe("Lyon");
   });
 });

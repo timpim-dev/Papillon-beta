@@ -24,6 +24,7 @@ import TabHeader from "@/ui/components/TabHeader";
 import TabHeaderTitle from "@/ui/components/TabHeaderTitle";
 import Typography from "@/ui/new/Typography";
 import {
+  extractPronoteRewardsProfile,
   LeaderboardScope,
   PpUserRecord,
 } from "@/utils/rewards/pocketbaseClient";
@@ -67,12 +68,9 @@ export default function RewardsHubScreen() {
   const [entries, setEntries] = useState<PpUserRecord[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const pronoteProfile = extractPronoteRewardsProfile(activeAccount);
   const [pseudoInput, setPseudoInput] = useState(
-    user?.pseudo || activeAccount?.firstName || "Élève Papillon"
-  );
-  const [cityInput, setCityInput] = useState(user?.city || "");
-  const [schoolInput, setSchoolInput] = useState(
-    user?.school_name || activeAccount?.schoolName || ""
+    user?.pseudo || pronoteProfile.pseudo
   );
   const [friendCodeInput, setFriendCodeInput] = useState("");
   const [addingFriend, setAddingFriend] = useState(false);
@@ -89,8 +87,6 @@ export default function RewardsHubScreen() {
       if (synced) {
         setUser(synced);
         setPseudoInput(synced.pseudo);
-        setCityInput(synced.city ?? "");
-        setSchoolInput(synced.school_name ?? "");
       }
       const rows = await loadLeaderboardForScope(scope);
       setEntries(rows);
@@ -113,8 +109,6 @@ export default function RewardsHubScreen() {
       if (next) {
         const synced = await ensureRewardsUserSynced({
           pseudo: pseudoInput,
-          city: cityInput,
-          schoolName: schoolInput,
           optInLeaderboards: true,
         });
         if (synced) setUser(synced);
@@ -128,9 +122,7 @@ export default function RewardsHubScreen() {
   const handleSaveProfile = async (avatarOverride?: string) => {
     try {
       const updated = await ensureRewardsUserSynced({
-        pseudo: pseudoInput.trim() || "Élève Papillon",
-        city: cityInput.trim(),
-        schoolName: schoolInput.trim(),
+        pseudo: pseudoInput.trim() || pronoteProfile.pseudo,
         avatarEmoji: avatarOverride,
         optInLeaderboards: true,
       });
@@ -309,39 +301,20 @@ export default function RewardsHubScreen() {
                   borderColor: colors.border,
                 }}
               />
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TextInput
-                  value={schoolInput}
-                  onChangeText={setSchoolInput}
-                  placeholder="Établissement"
-                  placeholderTextColor={String(colors.text) + "66"}
-                  style={{
-                    flex: 1,
-                    backgroundColor: colors.background,
-                    color: colors.text,
-                    borderRadius: 12,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                />
-                <TextInput
-                  value={cityInput}
-                  onChangeText={setCityInput}
-                  placeholder="Ville"
-                  placeholderTextColor={String(colors.text) + "66"}
-                  style={{
-                    flex: 1,
-                    backgroundColor: colors.background,
-                    color: colors.text,
-                    borderRadius: 12,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                />
+              <View
+                style={{
+                  backgroundColor: colors.background,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Typography variant="caption" color="textSecondary">
+                  Établissement Pronote : {user.school_name || pronoteProfile.schoolName || "Non renseigné"}
+                  {(user.city || pronoteProfile.city) ? ` • ${user.city || pronoteProfile.city}` : ""}
+                </Typography>
               </View>
               <TouchableOpacity
                 onPress={() => void handleSaveProfile()}

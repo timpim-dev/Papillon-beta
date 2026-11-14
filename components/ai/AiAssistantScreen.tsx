@@ -138,7 +138,19 @@ function ReminderActionCard({
   );
 }
 
-export default function AiAssistantScreen({ isModal = false }: { isModal?: boolean }) {
+export interface AiAssistantScreenProps {
+  isModal?: boolean;
+  embedded?: boolean;
+  topInset?: number;
+  onDeclinedOrDisabled?: () => void;
+}
+
+export default function AiAssistantScreen({
+  isModal = false,
+  embedded = false,
+  topInset = 0,
+  onDeclinedOrDisabled,
+}: AiAssistantScreenProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -204,7 +216,9 @@ export default function AiAssistantScreen({ isModal = false }: { isModal?: boole
       aiFirstOpenAsked: true,
       aiAssistantEnabled: false,
     });
-    if (isModal) {
+    if (onDeclinedOrDisabled) {
+      onDeclinedOrDisabled();
+    } else if (isModal) {
       router.back();
     } else {
       router.replace("/(tabs)");
@@ -324,20 +338,22 @@ export default function AiAssistantScreen({ isModal = false }: { isModal?: boole
   if (needsOnboardingGate) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <TabHeader
-          showAndroidBackButton={isModal}
-          modal={isModal}
-          title={
-            <TabHeaderTitle
-              color={String(colors.text)}
-              leading="Assistant IA"
-              subtitle="Configuration & Cookies"
-            />
-          }
-        />
+        {!embedded && (
+          <TabHeader
+            showAndroidBackButton={isModal}
+            modal={isModal}
+            title={
+              <TabHeaderTitle
+                color={String(colors.text)}
+                leading="Assistant IA"
+                subtitle="Configuration & Cookies"
+              />
+            }
+          />
+        )}
         <ScrollView
           contentContainerStyle={{
-            paddingTop: 120,
+            paddingTop: embedded ? Math.max(topInset + 12, 24) : 120,
             paddingHorizontal: 18,
             paddingBottom: insets.bottom + 40,
             gap: 16,
@@ -438,33 +454,35 @@ export default function AiAssistantScreen({ isModal = false }: { isModal?: boole
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <TabHeader
-        showAndroidBackButton={isModal}
-        modal={isModal}
-        onHeightChanged={setHeaderHeight}
-        title={
-          <TabHeaderTitle
-            color={String(colors.text)}
-            leading="Assistant IA"
-            subtitle={preset.label}
-          />
-        }
-        trailing={
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            {messages.length > 0 && (
-              <ChipButton onPress={handleClearChat} icon="trash" />
-            )}
-            <ChipButton onPress={() => router.push("/(settings)/ai")} icon="gears" />
-          </View>
-        }
-      />
+      {!embedded && (
+        <TabHeader
+          showAndroidBackButton={isModal}
+          modal={isModal}
+          onHeightChanged={setHeaderHeight}
+          title={
+            <TabHeaderTitle
+              color={String(colors.text)}
+              leading="Assistant IA"
+              subtitle={preset.label}
+            />
+          }
+          trailing={
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {messages.length > 0 && (
+                <ChipButton onPress={handleClearChat} icon="trash" />
+              )}
+              <ChipButton onPress={() => router.push("/(settings)/ai")} icon="gears" />
+            </View>
+          }
+        />
+      )}
 
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={item => item.id}
         contentContainerStyle={{
-          paddingTop: headerHeight + 8,
+          paddingTop: (embedded ? topInset : headerHeight) + 8,
           paddingHorizontal: 14,
           paddingBottom: 18,
           gap: 10,
@@ -529,6 +547,23 @@ export default function AiAssistantScreen({ isModal = false }: { isModal?: boole
                   </Pressable>
                 );
               })}
+              {embedded && messages.length > 0 && (
+                <Pressable
+                  onPress={handleClearChat}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                  }}
+                >
+                  <Typography variant="caption" color="textSecondary" style={{ fontWeight: "600" }}>
+                    Effacer
+                  </Typography>
+                </Pressable>
+              )}
             </ScrollView>
           </View>
         }
