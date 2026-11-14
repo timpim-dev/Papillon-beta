@@ -1,0 +1,2 @@
+-keep class xyz.getpapillon.wear.** { *; }
+-dontwarn com.google.android.gms.**
