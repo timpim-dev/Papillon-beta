@@ -5,7 +5,7 @@ const androidVersionCode = Math.floor(Date.now() / 1000) - 1577836800;
 
 export default {
   expo: {
-    name: "Papillon",
+    name: "papillion beta",
     slug: "papillon",
     version: PackageJSON.version,
     orientation: "default",
@@ -86,14 +86,14 @@ export default {
     },
     android: {
       versionCode: androidVersionCode,
-      package: "xyz.getpapillon.app",
+      package: "xyz.getpapillon.app.beta",
       blockedPermissions: [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
       ],
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#000000",
         monochromeImage: "./assets/images/monochrome-icon.png",
       },
       supportsTablet: true,
@@ -121,7 +121,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          backgroundColor: "#29947A",
+          backgroundColor: "#D66B85",
           image: "./assets/images/logotype.png",
           imageWidth: 240,
         },
@@ -172,6 +172,8 @@ export default {
       "@getpapillon/papillonkit",
       "./plugins/with-ios-native-files",
       "./plugins/with-android-gradle-properties-newline",
+      "./plugins/with-android-widgets",
+      "./plugins/with-wear-os",
     ],
     experiments: {
       typedRoutes: true,
