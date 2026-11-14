@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "expo-router/react-navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppState } from "react-native";
 
 import { useGradesData } from "@/app/(tabs)/grades/hooks/useGradesData";
 import { usePeriodsData } from "@/app/(tabs)/grades/hooks/usePeriodsData";
 import { useTimetableWidgetData } from "@/app/(tabs)/index/hooks/useTimetableWidgetData";
 import { getBalancesFromCache } from "@/database/useBalance";
 import {
+  getHomeworkById,
   getWeekNumberFromDate,
+  updateHomeworkIsDone,
   useHomeworkForWeeks,
 } from "@/database/useHomework";
 import {
   androidWidgetsAreSupported,
+  consumePendingWearTaskToggles,
   syncWidgetsSnapshot,
 } from "@/modules/papillon-android-widgets";
 import { getManager } from "@/services/shared";
@@ -17,15 +22,19 @@ import { Balance } from "@/services/shared/balance";
 import { Capabilities } from "@/services/shared/types";
 import { useAccountStore } from "@/stores/account";
 import { Services } from "@/stores/account/types";
-import { useSettingsStore } from "@/stores/settings";
+import { resolveWearConfig, useSettingsStore } from "@/stores/settings";
 import { getGradeDisplayScale } from "@/utils/grades/scale";
+import { useAccountWallpaper } from "@/utils/gradientWallpaper";
 import { warn } from "@/utils/logger/logger";
 
 import { buildAndroidWidgetsSnapshot } from "./androidWidgetsSnapshot";
 
 const SYNC_DEBOUNCE_MS = 400;
+const WEAR_TOGGLE_POLL_MS = 3000;
 
 const useAndroidSync = () => {
+  const theme = useTheme();
+  const { wallpaperGradient } = useAccountWallpaper();
   const accounts = useAccountStore(state => state.accounts);
   const lastUsedAccount = useAccountStore(state => state.lastUsedAccount);
   const account = useMemo(
@@ -33,10 +42,13 @@ const useAndroidSync = () => {
     [accounts, lastUsedAccount]
   );
 
-  const gradesDisplayScale = useSettingsStore(
-    state => state.personalization.gradesDisplayScale
-  );
+  const personalization = useSettingsStore(state => state.personalization);
+  const gradesDisplayScale = personalization.gradesDisplayScale;
   const displayScale = getGradeDisplayScale(gradesDisplayScale);
+  const wearConfig = useMemo(
+    () => resolveWearConfig(personalization),
+    [personalization]
+  );
 
   const { upcomingDays, loading: timetableLoading } = useTimetableWidgetData({
     showCancelled: true,
@@ -46,7 +58,8 @@ const useAndroidSync = () => {
 
   const currentWeek = getWeekNumberFromDate(new Date());
   const weeks = useMemo(() => [currentWeek, currentWeek + 1], [currentWeek]);
-  const homeworkByWeek = useHomeworkForWeeks(weeks);
+  const [homeworkRefreshTick, setHomeworkRefreshTick] = useState(0);
+  const homeworkByWeek = useHomeworkForWeeks(weeks, homeworkRefreshTick);
 
   const [balances, setBalances] = useState<Balance[]>([]);
   const [qrCodesByServiceId, setQrCodesByServiceId] = useState<
@@ -133,6 +146,57 @@ const useAndroidSync = () => {
     );
   }, [weeks, homeworkByWeek, account?.id, serviceIds]);
 
+  const processWearTaskToggles = useCallback(async () => {
+    try {
+      const toggles = await consumePendingWearTaskToggles();
+      if (!toggles || toggles.length === 0) {
+        return;
+      }
+      const manager = getManager();
+      let updatedAny = false;
+      for (const toggle of toggles) {
+        const task =
+          accountTasks.find(item => item.id === toggle.id) ??
+          (await getHomeworkById(toggle.id));
+        if (task && !task.custom) {
+          try {
+            await manager?.setHomeworkCompletion(task, toggle.isDone);
+          } catch (error) {
+            warn(
+              `Unable to push watch task completion to school service: ${String(error)}`,
+              "useAndroidWidgetsSync"
+            );
+          }
+        }
+        await updateHomeworkIsDone(toggle.id, toggle.isDone);
+        updatedAny = true;
+      }
+      if (updatedAny) {
+        lastPayloadHashRef.current = "";
+        setHomeworkRefreshTick(prev => prev + 1);
+      }
+    } catch (error) {
+      warn(
+        `Failed to process pending watch task toggles: ${String(error)}`,
+        "useAndroidWidgetsSync"
+      );
+    }
+  }, [accountTasks]);
+
+  useEffect(() => {
+    processWearTaskToggles();
+    const interval = setInterval(processWearTaskToggles, WEAR_TOGGLE_POLL_MS);
+    const sub = AppState.addEventListener("change", nextState => {
+      if (nextState === "active") {
+        processWearTaskToggles();
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      sub.remove();
+    };
+  }, [processWearTaskToggles]);
+
   useEffect(() => {
     if (timetableLoading || !account) {
       return;
@@ -146,6 +210,12 @@ const useAndroidSync = () => {
           .trim() || null;
       const snapshot = buildAndroidWidgetsSnapshot({
         accountName,
+        themeColor:
+          typeof theme.colors.primary === "string"
+            ? theme.colors.primary
+            : null,
+        wallpaperGradientColors: wallpaperGradient?.colors,
+        wearConfig,
         courses: allCourses,
         subjects,
         overallAverage: averages.student,
@@ -174,6 +244,9 @@ const useAndroidSync = () => {
   }, [
     timetableLoading,
     account,
+    theme.colors.primary,
+    wallpaperGradient?.colors,
+    wearConfig,
     allCourses,
     subjects,
     averages.student,

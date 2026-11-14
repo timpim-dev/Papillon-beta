@@ -24,6 +24,7 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
       appWidgetIds: IntArray,
     ) {
       val snapshot = WidgetStore.readSnapshot(context)
+      val isNight = WidgetStore.isNightMode(context)
       val grades = snapshot?.latestGrades?.take(3) ?: emptyList()
 
       for (appWidgetId in appWidgetIds) {
@@ -36,6 +37,12 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
         if (!snapshot?.overallAverage.isNullOrBlank()) {
           views.setViewVisibility(R.id.widget_average_badge, View.VISIBLE)
           views.setTextViewText(R.id.widget_average_badge, "Moy. ${snapshot?.overallAverage}")
+          if (!snapshot?.themeColor.isNullOrBlank()) {
+            views.setTextColor(
+              R.id.widget_average_badge,
+              WidgetStore.readableSubjectColor(snapshot?.themeColor, isNight)
+            )
+          }
         } else {
           views.setViewVisibility(R.id.widget_average_badge, View.GONE)
         }
@@ -50,7 +57,9 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
           bindGradeRow(
             views,
             grades.getOrNull(0),
+            isNight,
             R.id.grade_1_container,
+            R.id.grade_1_bg,
             R.id.grade_1_color,
             R.id.grade_1_subject,
             R.id.grade_1_subtitle,
@@ -59,7 +68,9 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
           bindGradeRow(
             views,
             grades.getOrNull(1),
+            isNight,
             R.id.grade_2_container,
+            R.id.grade_2_bg,
             R.id.grade_2_color,
             R.id.grade_2_subject,
             R.id.grade_2_subtitle,
@@ -68,7 +79,9 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
           bindGradeRow(
             views,
             grades.getOrNull(2),
+            isNight,
             R.id.grade_3_container,
+            R.id.grade_3_bg,
             R.id.grade_3_color,
             R.id.grade_3_subject,
             R.id.grade_3_subtitle,
@@ -83,7 +96,9 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
     private fun bindGradeRow(
       views: RemoteViews,
       grade: WidgetGradeItem?,
+      isNight: Boolean,
       containerId: Int,
+      bgId: Int,
       colorId: Int,
       subjectId: Int,
       subtitleId: Int,
@@ -94,8 +109,17 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
         return
       }
       views.setViewVisibility(containerId, View.VISIBLE)
-      views.setInt(colorId, "setColorFilter", WidgetStore.parseColorSafe(grade.color))
-      views.setTextViewText(subjectId, grade.subject)
+
+      val bgTint = WidgetStore.softCardTint(grade.color, isNight, ratio = if (isNight) 0.24f else 0.14f)
+      val accentColor = WidgetStore.readableSubjectColor(grade.color, isNight)
+
+      views.setInt(bgId, "setColorFilter", bgTint)
+      views.setInt(colorId, "setColorFilter", accentColor)
+      views.setTextColor(subjectId, accentColor)
+      views.setTextColor(scoreId, accentColor)
+
+      val emojiPrefix = if (!grade.emoji.isNullOrBlank()) "${grade.emoji} " else ""
+      views.setTextViewText(subjectId, "$emojiPrefix${grade.subject}")
       val dateLabel = WidgetStore.formatShortDate(grade.date)
       val subtitle = listOfNotNull(
         grade.description.takeIf { it.isNotBlank() },

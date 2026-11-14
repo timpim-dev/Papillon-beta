@@ -10,6 +10,7 @@ import { Grade, GradeScore, Subject } from "@/services/shared/grade";
 import { Homework } from "@/services/shared/homework";
 import { Course, CourseStatus } from "@/services/shared/timetable";
 import { Services } from "@/stores/account/types";
+import type { WearConfig } from "@/stores/settings/types";
 import { formatHTML } from "@/utils/format/html";
 import {
   formatGradeScoreForDisplay,
@@ -17,10 +18,14 @@ import {
 } from "@/utils/grades/scale";
 import { getCodeType, getServiceName } from "@/utils/services/helper";
 import { getSubjectColor } from "@/utils/subjects/colors";
+import { getSubjectEmoji } from "@/utils/subjects/emoji";
 import { getSubjectName } from "@/utils/subjects/name";
 
 export interface BuildSnapshotInput {
   accountName?: string | null;
+  themeColor?: string | null;
+  wallpaperGradientColors?: string[];
+  wearConfig?: WearConfig;
   courses: Course[];
   subjects: Subject[];
   overallAverage?: GradeScore | null;
@@ -34,8 +39,19 @@ export interface BuildSnapshotInput {
 
 export type GradeWithSubject = Grade & { subject: Subject };
 
+function safeSubjectEmoji(subject: string): string {
+  try {
+    return getSubjectEmoji(subject);
+  } catch {
+    return "📚";
+  }
+}
+
 export function buildAndroidWidgetsSnapshot({
   accountName = null,
+  themeColor = null,
+  wallpaperGradientColors,
+  wearConfig,
   courses,
   subjects,
   overallAverage,
@@ -56,6 +72,7 @@ export function buildAndroidWidgetsSnapshot({
     .map(course => ({
       id: course.id,
       subject: getSubjectName(course.subject),
+      emoji: safeSubjectEmoji(course.subject),
       room: course.room || null,
       teacher: course.teacher || null,
       color: getSubjectColor(course.subject),
@@ -80,6 +97,7 @@ export function buildAndroidWidgetsSnapshot({
       return {
         id: item.id,
         subject: getSubjectName(item.subject.name),
+        emoji: safeSubjectEmoji(item.subject.name),
         description: item.description || getSubjectName(item.subject.name),
         score: formatted.value,
         outOf: formatted.denominator,
@@ -111,10 +129,11 @@ export function buildAndroidWidgetsSnapshot({
     .sort(
       (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
     )
-    .slice(0, 10)
+    .slice(0, 15)
     .map((task, index) => ({
       id: task.id ?? `${task.subject}-${index}`,
       subject: getSubjectName(task.subject),
+      emoji: safeSubjectEmoji(task.subject),
       description: formatHTML(task.content || "", true),
       color: getSubjectColor(task.subject),
       dueDate: new Date(task.dueDate).getTime(),
@@ -140,6 +159,9 @@ export function buildAndroidWidgetsSnapshot({
   return {
     updatedAt: now,
     accountName,
+    themeColor,
+    ...(wallpaperGradientColors ? { wallpaperGradientColors } : {}),
+    ...(wearConfig ? { wearConfig } : {}),
     overallAverage: formattedOverall,
     nextClasses,
     latestGrades,

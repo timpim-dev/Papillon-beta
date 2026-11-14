@@ -12,6 +12,8 @@ import {
   Personalization,
   SettingsState,
   SettingsStorage,
+  WearConfig,
+  WearSectionId,
 } from "./types";
 
 export const DEFAULT_MATERIAL_YOU_ENABLED =
@@ -64,6 +66,48 @@ export function getHomeWidgetsForAccount(
   return resolved;
 }
 
+export const DEFAULT_WEAR_CONFIG: WearConfig = {
+  syncThemeGradient: true,
+  enabledSections: ["classes", "tasks", "grades", "canteen"],
+  complicationMetric: "next_class",
+};
+
+const VALID_WEAR_SECTIONS = new Set<WearSectionId>(
+  DEFAULT_WEAR_CONFIG.enabledSections
+);
+
+/**
+ * Normalizes persisted Wear OS preferences, ensuring the section list
+ * contains valid unique section identifiers.
+ */
+export function resolveWearConfig(personalization?: Personalization): WearConfig {
+  const saved = personalization?.wearConfig;
+  if (!saved) {
+    return {
+      ...DEFAULT_WEAR_CONFIG,
+      enabledSections: [...DEFAULT_WEAR_CONFIG.enabledSections],
+    };
+  }
+
+  const seen = new Set<WearSectionId>();
+  const sections: WearSectionId[] = [];
+  for (const id of saved.enabledSections ?? []) {
+    if (VALID_WEAR_SECTIONS.has(id) && !seen.has(id)) {
+      seen.add(id);
+      sections.push(id);
+    }
+  }
+
+  return {
+    syncThemeGradient: saved.syncThemeGradient ?? true,
+    enabledSections:
+      sections.length > 0 || (saved.enabledSections && saved.enabledSections.length === 0)
+        ? sections
+        : [...DEFAULT_WEAR_CONFIG.enabledSections],
+    complicationMetric: saved.complicationMetric ?? "next_class",
+  };
+}
+
 const defaultPersonalization: Personalization = {
   fontFamily: "sn-pro",
   colorSelected: Colors.GREEN,
@@ -82,6 +126,7 @@ const defaultPersonalization: Personalization = {
   gradesDisplayScale: "20",
   welcomeModalSeen: false,
   homeWidgets: DEFAULT_HOME_WIDGETS,
+  wearConfig: DEFAULT_WEAR_CONFIG,
 };
 
 export const useSettingsStore = create<SettingsStorage>()(

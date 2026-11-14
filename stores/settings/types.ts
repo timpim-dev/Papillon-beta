@@ -41,6 +41,19 @@ export interface HomeWidgetConfig {
   enabled: boolean;
 }
 
+export type WearSectionId = "classes" | "tasks" | "grades" | "canteen";
+
+export type WearComplicationMetric =
+  | "next_class"
+  | "tasks_count"
+  | "overall_average";
+
+export interface WearConfig {
+  syncThemeGradient: boolean;
+  enabledSections: WearSectionId[];
+  complicationMetric: WearComplicationMetric;
+}
+
 export interface AccountWallpaper {
   wallpaper?: Wallpaper;
   // Restored when switching the wallpaper modal back from gradient to image
@@ -77,6 +90,7 @@ export interface Personalization {
   disabledTabsByAccount?: Record<string, string[]>;
   homeWidgets?: HomeWidgetConfig[];
   homeWidgetsByAccount?: Record<string, HomeWidgetConfig[]>;
+  wearConfig?: WearConfig;
   gradesSortMethod?: string;
   gradesPeriodName?: string;
   installedVersion?: string;

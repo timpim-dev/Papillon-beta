@@ -24,6 +24,7 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
       appWidgetIds: IntArray,
     ) {
       val snapshot = WidgetStore.readSnapshot(context)
+      val isNight = WidgetStore.isNightMode(context)
       val now = System.currentTimeMillis()
       val nextTwo = snapshot?.nextClasses
         ?.filter { it.to > now }
@@ -40,6 +41,12 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
         if (!snapshot?.accountName.isNullOrBlank()) {
           views.setViewVisibility(R.id.widget_header_badge, View.VISIBLE)
           views.setTextViewText(R.id.widget_header_badge, snapshot?.accountName)
+          if (!snapshot?.themeColor.isNullOrBlank()) {
+            views.setTextColor(
+              R.id.widget_header_badge,
+              WidgetStore.readableSubjectColor(snapshot?.themeColor, isNight)
+            )
+          }
         } else {
           views.setViewVisibility(R.id.widget_header_badge, View.GONE)
         }
@@ -53,7 +60,9 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
           bindCourseRow(
             views,
             nextTwo.getOrNull(0),
+            isNight,
             R.id.course_1_container,
+            R.id.course_1_bg,
             R.id.course_1_color,
             R.id.course_1_subject,
             R.id.course_1_details,
@@ -62,7 +71,9 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
           bindCourseRow(
             views,
             nextTwo.getOrNull(1),
+            isNight,
             R.id.course_2_container,
+            R.id.course_2_bg,
             R.id.course_2_color,
             R.id.course_2_subject,
             R.id.course_2_details,
@@ -77,7 +88,9 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
     private fun bindCourseRow(
       views: RemoteViews,
       course: WidgetCourseItem?,
+      isNight: Boolean,
       containerId: Int,
+      bgId: Int,
       colorId: Int,
       subjectId: Int,
       detailsId: Int,
@@ -88,10 +101,26 @@ class NextClassesWidgetProvider : AppWidgetProvider() {
         return
       }
       views.setViewVisibility(containerId, View.VISIBLE)
-      views.setInt(colorId, "setColorFilter", WidgetStore.parseColorSafe(course.color))
+
+      val bgTint = if (course.isCanceled) {
+        WidgetStore.softCardTint("#6B7280", isNight, ratio = if (isNight) 0.14f else 0.08f)
+      } else {
+        WidgetStore.softCardTint(course.color, isNight, ratio = if (isNight) 0.28f else 0.18f)
+      }
+      val accentColor = WidgetStore.readableSubjectColor(
+        if (course.isCanceled) "#6B7280" else course.color,
+        isNight
+      )
+
+      views.setInt(bgId, "setColorFilter", bgTint)
+      views.setInt(colorId, "setColorFilter", accentColor)
+      views.setTextColor(subjectId, accentColor)
+      views.setTextColor(timeId, accentColor)
+
+      val titlePrefix = if (!course.emoji.isNullOrBlank()) "${course.emoji} " else ""
       views.setTextViewText(
         subjectId,
-        if (course.isCanceled) "${course.subject} (Annulé)" else course.subject
+        if (course.isCanceled) "$titlePrefix${course.subject} (Annulé)" else "$titlePrefix${course.subject}"
       )
       val details = listOfNotNull(
         course.room?.let { "Salle $it" },

@@ -5,6 +5,13 @@ export {
   androidWidgetsAreSupported,
   type AndroidWidgetsSnapshot,
   type AndroidWidgetTask,
+  consumePendingWearTaskToggles,
+  getConnectedWearNodes,
+  installApkOnPhone,
   reloadWidgets,
+  sendApkToWatch,
+  syncWatchSnapshotNow,
   syncWidgetsSnapshot,
+  type WearNodeInfo,
+  type WearTaskToggleEvent,
 } from "./src/PapillonAndroidWidgetsModule";
