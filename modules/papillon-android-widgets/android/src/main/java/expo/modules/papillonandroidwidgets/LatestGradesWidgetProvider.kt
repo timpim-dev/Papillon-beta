@@ -29,22 +29,15 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
 
       for (appWidgetId in appWidgetIds) {
         val views = RemoteViews(context.packageName, R.layout.widget_latest_grades)
-        views.setOnClickPendingIntent(
-          R.id.widget_root,
-          WidgetStore.createDeepLinkIntent(context, DEEP_LINK, 1002)
-        )
+        val deepLinkIntent = WidgetStore.createDeepLinkIntent(context, DEEP_LINK, 1002)
+        views.setOnClickPendingIntent(R.id.widget_root, deepLinkIntent)
+        views.setOnClickPendingIntent(R.id.widget_average_badge, deepLinkIntent)
 
+        views.setViewVisibility(R.id.widget_average_badge, View.VISIBLE)
         if (!snapshot?.overallAverage.isNullOrBlank()) {
-          views.setViewVisibility(R.id.widget_average_badge, View.VISIBLE)
           views.setTextViewText(R.id.widget_average_badge, "Moy. ${snapshot?.overallAverage}")
-          if (!snapshot?.themeColor.isNullOrBlank()) {
-            views.setTextColor(
-              R.id.widget_average_badge,
-              WidgetStore.readableSubjectColor(snapshot?.themeColor, isNight)
-            )
-          }
         } else {
-          views.setViewVisibility(R.id.widget_average_badge, View.GONE)
+          views.setTextViewText(R.id.widget_average_badge, context.getString(R.string.widget_see_more))
         }
 
         if (grades.isEmpty()) {
@@ -60,7 +53,6 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
             isNight,
             R.id.grade_1_container,
             R.id.grade_1_bg,
-            R.id.grade_1_color,
             R.id.grade_1_subject,
             R.id.grade_1_subtitle,
             R.id.grade_1_score
@@ -71,7 +63,6 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
             isNight,
             R.id.grade_2_container,
             R.id.grade_2_bg,
-            R.id.grade_2_color,
             R.id.grade_2_subject,
             R.id.grade_2_subtitle,
             R.id.grade_2_score
@@ -82,7 +73,6 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
             isNight,
             R.id.grade_3_container,
             R.id.grade_3_bg,
-            R.id.grade_3_color,
             R.id.grade_3_subject,
             R.id.grade_3_subtitle,
             R.id.grade_3_score
@@ -99,7 +89,6 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
       isNight: Boolean,
       containerId: Int,
       bgId: Int,
-      colorId: Int,
       subjectId: Int,
       subtitleId: Int,
       scoreId: Int,
@@ -110,22 +99,24 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
       }
       views.setViewVisibility(containerId, View.VISIBLE)
 
-      val bgTint = WidgetStore.softCardTint(grade.color, isNight, ratio = if (isNight) 0.24f else 0.14f)
-      val accentColor = WidgetStore.readableSubjectColor(grade.color, isNight)
+      // Matches in-app CompactGrade.tsx: soft tinted fill, primary text ±0.50, secondary alpha 0.72
+      val bgTint = WidgetStore.adjustColor(grade.color, if (isNight) -0.82f else 0.85f)
+      val tintedText = WidgetStore.adjustColor(grade.color, if (isNight) 0.50f else -0.50f)
+      val tintedSec = WidgetStore.withAlpha(tintedText, 0.72f)
 
       views.setInt(bgId, "setColorFilter", bgTint)
-      views.setInt(colorId, "setColorFilter", accentColor)
-      views.setTextColor(subjectId, accentColor)
-      views.setTextColor(scoreId, accentColor)
+      views.setTextColor(subjectId, tintedSec)
+      views.setTextColor(subtitleId, tintedText)
+      views.setTextColor(scoreId, tintedText)
 
       val emojiPrefix = if (!grade.emoji.isNullOrBlank()) "${grade.emoji} " else ""
-      views.setTextViewText(subjectId, "$emojiPrefix${grade.subject}")
       val dateLabel = WidgetStore.formatShortDate(grade.date)
-      val subtitle = listOfNotNull(
-        grade.description.takeIf { it.isNotBlank() },
+      val topLabel = listOfNotNull(
+        "$emojiPrefix${grade.subject}",
         dateLabel.takeIf { it.isNotBlank() }
       ).joinToString(" · ")
-      views.setTextViewText(subtitleId, subtitle.ifEmpty { "Évaluation" })
+      views.setTextViewText(subjectId, topLabel)
+      views.setTextViewText(subtitleId, grade.description.ifBlank { "Évaluation" })
       views.setTextViewText(
         scoreId,
         if (grade.outOf.isNotBlank()) "${grade.score}${grade.outOf}" else grade.score

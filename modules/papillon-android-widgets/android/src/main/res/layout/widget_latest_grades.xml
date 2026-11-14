@@ -5,15 +5,15 @@
   android:layout_height="match_parent"
   android:background="@drawable/widget_background"
   android:orientation="vertical"
-  android:padding="13dp">
+  android:padding="12dp">
 
   <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingHorizontal="3dp"
-    android:paddingBottom="9dp">
+    android:paddingHorizontal="4dp"
+    android:paddingBottom="8dp">
 
     <TextView
       android:id="@+id/widget_header_title"
@@ -32,14 +32,14 @@
       android:id="@+id/widget_average_badge"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
-      android:background="@drawable/widget_accent_pill"
+      android:background="@drawable/widget_neutral_pill"
       android:fontFamily="sans-serif-medium"
       android:paddingHorizontal="10dp"
       android:paddingVertical="4dp"
-      android:textColor="@color/papillon_widget_accent"
-      android:textSize="11.5sp"
-      android:textStyle="bold"
-      android:visibility="gone" />
+      android:text="@string/widget_see_more"
+      android:textColor="@color/papillon_widget_text_secondary"
+      android:textSize="11sp"
+      android:textStyle="bold" />
   </LinearLayout>
 
   <TextView
@@ -71,20 +71,10 @@
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      android:background="@drawable/widget_item_stroke"
       android:gravity="center_vertical"
       android:orientation="horizontal"
-      android:paddingHorizontal="11dp"
-      android:paddingVertical="6dp">
-
-      <ImageView
-        android:id="@+id/grade_1_color"
-        android:layout_width="6dp"
-        android:layout_height="match_parent"
-        android:layout_marginVertical="3dp"
-        android:layout_marginEnd="10dp"
-        android:contentDescription="@null"
-        android:src="@drawable/widget_color_bar" />
+      android:paddingHorizontal="13dp"
+      android:paddingVertical="7dp">
 
       <LinearLayout
         android:layout_width="0dp"
@@ -99,32 +89,28 @@
           android:ellipsize="end"
           android:fontFamily="sans-serif-medium"
           android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_primary"
-          android:textSize="13.5sp"
-          android:textStyle="bold" />
+          android:textSize="11.5sp" />
 
         <TextView
           android:id="@+id/grade_1_subtitle"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:layout_marginTop="1dp"
+          android:layout_marginTop="2dp"
           android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
           android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_secondary"
-          android:textSize="11sp" />
+          android:textSize="13.5sp"
+          android:textStyle="bold" />
       </LinearLayout>
 
       <TextView
         android:id="@+id/grade_1_score"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/widget_neutral_pill"
+        android:layout_marginStart="10dp"
         android:fontFamily="sans-serif-medium"
-        android:paddingHorizontal="9dp"
-        android:paddingVertical="4dp"
-        android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="12.5sp"
+        android:maxLines="1"
+        android:textSize="15.5sp"
         android:textStyle="bold" />
     </LinearLayout>
   </FrameLayout>
@@ -148,20 +134,10 @@
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      android:background="@drawable/widget_item_stroke"
       android:gravity="center_vertical"
       android:orientation="horizontal"
-      android:paddingHorizontal="11dp"
-      android:paddingVertical="6dp">
-
-      <ImageView
-        android:id="@+id/grade_2_color"
-        android:layout_width="6dp"
-        android:layout_height="match_parent"
-        android:layout_marginVertical="3dp"
-        android:layout_marginEnd="10dp"
-        android:contentDescription="@null"
-        android:src="@drawable/widget_color_bar" />
+      android:paddingHorizontal="13dp"
+      android:paddingVertical="7dp">
 
       <LinearLayout
         android:layout_width="0dp"
@@ -176,32 +152,28 @@
           android:ellipsize="end"
           android:fontFamily="sans-serif-medium"
           android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_primary"
-          android:textSize="13.5sp"
-          android:textStyle="bold" />
+          android:textSize="11.5sp" />
 
         <TextView
           android:id="@+id/grade_2_subtitle"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:layout_marginTop="1dp"
+          android:layout_marginTop="2dp"
           android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
           android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_secondary"
-          android:textSize="11sp" />
+          android:textSize="13.5sp"
+          android:textStyle="bold" />
       </LinearLayout>
 
       <TextView
         android:id="@+id/grade_2_score"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/widget_neutral_pill"
+        android:layout_marginStart="10dp"
         android:fontFamily="sans-serif-medium"
-        android:paddingHorizontal="9dp"
-        android:paddingVertical="4dp"
-        android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="12.5sp"
+        android:maxLines="1"
+        android:textSize="15.5sp"
         android:textStyle="bold" />
     </LinearLayout>
   </FrameLayout>
@@ -225,20 +197,10 @@
     <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      android:background="@drawable/widget_item_stroke"
       android:gravity="center_vertical"
       android:orientation="horizontal"
-      android:paddingHorizontal="11dp"
-      android:paddingVertical="6dp">
-
-      <ImageView
-        android:id="@+id/grade_3_color"
-        android:layout_width="6dp"
-        android:layout_height="match_parent"
-        android:layout_marginVertical="3dp"
-        android:layout_marginEnd="10dp"
-        android:contentDescription="@null"
-        android:src="@drawable/widget_color_bar" />
+      android:paddingHorizontal="13dp"
+      android:paddingVertical="7dp">
 
       <LinearLayout
         android:layout_width="0dp"
@@ -253,32 +215,28 @@
           android:ellipsize="end"
           android:fontFamily="sans-serif-medium"
           android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_primary"
-          android:textSize="13.5sp"
-          android:textStyle="bold" />
+          android:textSize="11.5sp" />
 
         <TextView
           android:id="@+id/grade_3_subtitle"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:layout_marginTop="1dp"
+          android:layout_marginTop="2dp"
           android:ellipsize="end"
+          android:fontFamily="sans-serif-medium"
           android:maxLines="1"
-          android:textColor="@color/papillon_widget_text_secondary"
-          android:textSize="11sp" />
+          android:textSize="13.5sp"
+          android:textStyle="bold" />
       </LinearLayout>
 
       <TextView
         android:id="@+id/grade_3_score"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:background="@drawable/widget_neutral_pill"
+        android:layout_marginStart="10dp"
         android:fontFamily="sans-serif-medium"
-        android:paddingHorizontal="9dp"
-        android:paddingVertical="4dp"
-        android:textColor="@color/papillon_widget_text_primary"
-        android:textSize="12.5sp"
+        android:maxLines="1"
+        android:textSize="15.5sp"
         android:textStyle="bold" />
     </LinearLayout>
   </FrameLayout>

@@ -260,24 +260,36 @@ object WidgetStore {
   }
 
   /**
-   * Produces an opaque pastel surface tint in light mode (or deep tinted dark
-   * surface in night mode) matching Papillon's in-app Course / CompactGrade cards.
+   * Mirrors utils/adjustColor.ts: blends toward black when percent < 0
+   * or toward white when percent > 0.
    */
+  fun adjustColor(
+    hex: String?,
+    percent: Float,
+    fallback: Int = Color.parseColor("#26B290"),
+  ): Int {
+    val base = parseColorSafe(hex, fallback)
+    val target = if (percent < 0f) 0 else 255
+    val p = kotlin.math.abs(percent).coerceIn(0f, 1f)
+    val r = (Color.red(base) + (target - Color.red(base)) * p).roundToInt().coerceIn(0, 255)
+    val g = (Color.green(base) + (target - Color.green(base)) * p).roundToInt().coerceIn(0, 255)
+    val b = (Color.blue(base) + (target - Color.blue(base)) * p).roundToInt().coerceIn(0, 255)
+    return Color.rgb(r, g, b)
+  }
+
+  fun withAlpha(color: Int, alphaFraction: Float): Int {
+    val alpha = (alphaFraction.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
+    return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+  }
+
   fun softCardTint(hex: String?, isNight: Boolean, ratio: Float = if (isNight) 0.22f else 0.16f): Int {
-    val base = if (isNight) Color.parseColor("#1C1C1E") else Color.WHITE
+    val base = if (isNight) Color.parseColor("#121212") else Color.WHITE
     val subject = parseColorSafe(hex)
     return blendColors(base, subject, ratio)
   }
 
-  /**
-   * Adjusts subject color luminance to keep text and accent pills legible against
-   * the widget card surface in both light and dark modes.
-   */
   fun readableSubjectColor(hex: String?, isNight: Boolean): Int {
-    val subject = parseColorSafe(hex)
-    val target = if (isNight) Color.WHITE else Color.BLACK
-    val factor = if (isNight) 0.28f else 0.32f
-    return blendColors(subject, target, factor)
+    return adjustColor(hex, if (isNight) 0.20f else -0.25f)
   }
 
   private fun blendColors(from: Int, to: Int, ratio: Float): Int {
@@ -287,6 +299,64 @@ object WidgetStore {
     val g = (Color.green(from) * inverse + Color.green(to) * clamped).roundToInt().coerceIn(0, 255)
     val b = (Color.blue(from) * inverse + Color.blue(to) * clamped).roundToInt().coerceIn(0, 255)
     return Color.rgb(r, g, b)
+  }
+
+  fun dayKey(timeMs: Long): String {
+    if (timeMs <= 0L) return ""
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(timeMs))
+  }
+
+  fun formatHourMinute(timeMs: Long): String {
+    if (timeMs <= 0L) return ""
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timeMs))
+  }
+
+  fun formatDuration(fromMs: Long, toMs: Long): String {
+    val totalMinutes = ((toMs - fromMs) / 60000L).toInt().coerceAtLeast(0)
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+      hours > 0 && minutes > 0 -> "${hours}h ${minutes} min"
+      hours > 0 -> "${hours}h"
+      else -> "${minutes} min"
+    }
+  }
+
+  private fun calendarDayDelta(targetMs: Long): Int {
+    val today = Calendar.getInstance().apply {
+      set(Calendar.HOUR_OF_DAY, 0)
+      set(Calendar.MINUTE, 0)
+      set(Calendar.SECOND, 0)
+      set(Calendar.MILLISECOND, 0)
+    }
+    val target = Calendar.getInstance().apply {
+      timeInMillis = targetMs
+      set(Calendar.HOUR_OF_DAY, 0)
+      set(Calendar.MINUTE, 0)
+      set(Calendar.SECOND, 0)
+      set(Calendar.MILLISECOND, 0)
+    }
+    return ((target.timeInMillis - today.timeInMillis) / 86_400_000.0).roundToInt()
+  }
+
+  fun formatRelativeDayTitle(firstCourseMs: Long): String {
+    if (firstCourseMs <= 0L) return "Prochains cours"
+    return when (val days = calendarDayDelta(firstCourseMs)) {
+      in Int.MIN_VALUE..0 -> "Aujourd'hui"
+      1 -> "Demain"
+      else -> "Dans $days jours"
+    }
+  }
+
+  fun formatRelativeDistanceDay(dateMs: Long): String {
+    if (dateMs <= 0L) return ""
+    return when (val days = calendarDayDelta(dateMs)) {
+      -1 -> "hier"
+      0 -> "aujourd'hui"
+      1 -> "demain"
+      in 2..Int.MAX_VALUE -> "dans $days jours"
+      else -> "il y a ${-days} jours"
+    }
   }
 
   fun formatTimeRange(fromMs: Long, toMs: Long): String {
@@ -301,21 +371,7 @@ object WidgetStore {
   }
 
   fun formatDueDate(dateMs: Long): String {
-    if (dateMs <= 0L) return ""
-    val target = Calendar.getInstance().apply { timeInMillis = dateMs }
-    val today = Calendar.getInstance()
-    val tomorrow = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, 1) }
-
-    return when {
-      isSameDay(target, today) -> "Auj."
-      isSameDay(target, tomorrow) -> "Dem."
-      else -> SimpleDateFormat("EEE dd/MM", Locale.FRENCH).format(Date(dateMs))
-    }
-  }
-
-  private fun isSameDay(a: Calendar, b: Calendar): Boolean {
-    return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
-      a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
+    return formatRelativeDistanceDay(dateMs)
   }
 
   fun createDeepLinkIntent(context: Context, uriString: String, requestCode: Int): PendingIntent {

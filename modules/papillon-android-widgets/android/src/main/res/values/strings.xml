@@ -11,4 +11,5 @@
   <string name="widget_tasks_title">Tâches à faire</string>
   <string name="widget_tasks_description">Affiche tes prochains devoirs à faire</string>
   <string name="widget_tasks_empty">Aucun devoir à faire</string>
+  <string name="widget_see_more">Voir plus ↗</string>
 </resources>

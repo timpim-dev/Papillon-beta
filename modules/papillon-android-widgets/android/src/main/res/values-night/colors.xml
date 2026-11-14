@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <color name="papillon_widget_bg">#1C1C1E</color>
-  <color name="papillon_widget_border">#1AFFFFFF</color>
-  <color name="papillon_widget_card_bg">#262629</color>
-  <color name="papillon_widget_card_border">#14FFFFFF</color>
-  <color name="papillon_widget_pill_bg">#1AFFFFFF</color>
-  <color name="papillon_widget_text_primary">#F5F5F7</color>
+  <color name="papillon_widget_bg">#121212</color>
+  <color name="papillon_widget_border">#00000000</color>
+  <color name="papillon_widget_card_bg">#1B1B1E</color>
+  <color name="papillon_widget_card_border">#00000000</color>
+  <color name="papillon_widget_pill_bg">#1F1F23</color>
+  <color name="papillon_widget_text_primary">#FFFFFF</color>
   <color name="papillon_widget_text_secondary">#98989F</color>
   <color name="papillon_widget_accent">#4DC4A6</color>
   <color name="papillon_widget_accent_bg">#1E3A33</color>
