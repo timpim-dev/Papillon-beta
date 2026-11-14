@@ -28,10 +28,26 @@ export default function Welcome() {
 
   // Without an account, the splash stays up until the redirect from home ends.
   React.useLayoutEffect(() => {
+    let hidden = false;
+    const hideSplash = () => {
+      if (!hidden) {
+        hidden = true;
+        SplashScreen.hideAsync();
+      }
+    };
+
     const onboardingNavigation = navigation.getParent<NativeStackNavigationProp<ParamListBase>>();
-    return onboardingNavigation?.addListener("transitionEnd", event => {
-      if (!event.data.closing) SplashScreen.hideAsync();
+    const unsubscribe = onboardingNavigation?.addListener("transitionEnd", event => {
+      if (!event.data.closing) {
+        hideSplash();
+      }
     });
+    const fallbackTimer = setTimeout(hideSplash, 450);
+
+    return () => {
+      unsubscribe?.();
+      clearTimeout(fallbackTimer);
+    };
   }, [navigation]);
 
   const openHelpWebPage = () => {
