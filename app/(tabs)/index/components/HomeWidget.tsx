@@ -14,6 +14,7 @@ import { Animation } from '@/ui/utils/Animation';
 import { PapillonAppearIn, PapillonAppearOut } from '@/ui/utils/Transition';
 
 export interface HomeWidgetItem {
+  id?: string;
   icon: React.ReactNode;
   title: string;
   redirect?: string;

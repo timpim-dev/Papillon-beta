@@ -611,5 +611,15 @@
   "Home_Sync_Unavailable_Title": "{{service}} temporarily unavailable",
   "Home_Sync_Unavailable_Description": "{{service}} can't be reached right now. The data shown comes from the last sync.",
   "Home_Sync_Suspended_Title": "Connection paused",
-  "Home_Sync_Suspended_Description": "Your school's server is temporarily blocking connections from this network. Try again in a few minutes by pulling down to refresh. Your latest data stays visible."
+  "Home_Sync_Suspended_Description": "Your school's server is temporarily blocking connections from this network. Try again in a few minutes by pulling down to refresh. Your latest data stays visible.",
+  "Settings_HomeWidgets_Title": "Home widgets",
+  "Settings_HomeWidgets_Description": "Choose and reorder home screen widgets",
+  "Settings_HomeWidgets_Reset": "Reset to default order",
+  "Home_Widgets_Customize": "Customize home",
+  "Home_Widget_News": "News",
+  "Home_Widget_Tasks_Description": "Shows your upcoming tasks to do",
+  "Home_Widget_Timetable_Description": "Shows your upcoming classes",
+  "Home_Widget_GradesAverage_Description": "Shows your overall average evolution",
+  "Home_Widget_LatestGrades_Description": "Shows your most recent grades",
+  "Home_Widget_News_Description": "Shows the latest news from your school"
 }

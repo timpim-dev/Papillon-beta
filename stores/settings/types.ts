@@ -29,6 +29,18 @@ export interface Wallpaper {
 
 export type CalendarViewMode = "list" | "week";
 
+export type HomeWidgetId =
+  | "timetable"
+  | "tasks"
+  | "grades_average"
+  | "latest_grades"
+  | "news";
+
+export interface HomeWidgetConfig {
+  id: HomeWidgetId;
+  enabled: boolean;
+}
+
 export interface AccountWallpaper {
   wallpaper?: Wallpaper;
   // Restored when switching the wallpaper modal back from gradient to image
@@ -63,6 +75,8 @@ export interface Personalization {
   wallpapersByAccount?: Record<string, AccountWallpaper>;
   disabledTabs?: string[];
   disabledTabsByAccount?: Record<string, string[]>;
+  homeWidgets?: HomeWidgetConfig[];
+  homeWidgetsByAccount?: Record<string, HomeWidgetConfig[]>;
   gradesSortMethod?: string;
   gradesPeriodName?: string;
   installedVersion?: string;

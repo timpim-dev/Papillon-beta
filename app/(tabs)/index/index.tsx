@@ -1,17 +1,38 @@
 import { Papicons } from '@getpapillon/papicons';
-import { type ParamListBase, useIsFocused } from "expo-router/react-navigation";
+import MaskedView from '@react-native-masked-view/masked-view';
 import { type NativeStackNavigationProp, useNavigation, useRouter } from 'expo-router';
+import { type ParamListBase, useIsFocused, useTheme } from 'expo-router/react-navigation';
+import { notificationAsync, NotificationFeedbackType } from 'expo-haptics';
 import { t } from 'i18next';
 import React from 'react';
-import { FlatList, Platform, RefreshControl, StatusBar, View } from 'react-native';
+import { FlatList, Platform, Pressable, RefreshControl, StatusBar, View } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Reanimated, { LinearTransition } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  getHomeworkRouteId,
+  getWeekNumberFromDate,
+  updateHomeworkIsDone,
+  useHomeworkForWeeks,
+} from '@/database/useHomework';
+import { useNews } from '@/database/useNews';
+import { getManager } from '@/services/shared';
+import { Homework as SharedHomework } from '@/services/shared/homework';
 import { useAccountStore } from '@/stores/account';
-import { useSettingsStore } from '@/stores/settings';
-import { checkConsent } from '@/utils/logger/consent';
+import { getHomeWidgetsForAccount, useSettingsStore } from '@/stores/settings';
+import { HomeWidgetId } from '@/stores/settings/types';
+import { Dynamic } from '@/ui/components/Dynamic';
+import Icon from '@/ui/components/Icon';
+import MainTabErrorBoundary from '@/ui/components/MainTabErrorBoundary';
+import Stack from '@/ui/components/Stack';
+import Typography from '@/ui/components/Typography';
 import { Animation } from '@/ui/utils/Animation';
+import { checkConsent } from '@/utils/logger/consent';
+import { warn } from '@/utils/logger/logger';
 
+import { useGradesData } from '../grades/hooks/useGradesData';
+import { usePeriodsData } from '../grades/hooks/usePeriodsData';
 import HomeHeader from './atoms/HomeHeader';
 import HomeTopBar from './atoms/HomeTopBar';
 import Wallpaper from './atoms/Wallpaper';
@@ -19,21 +40,15 @@ import HomeWidget, { HomeWidgetItem } from './components/HomeWidget';
 import { useHomeData } from './hooks/useHomeData';
 import { useTimetableWidgetData } from './hooks/useTimetableWidgetData';
 import { useTimetableWidgetTitle } from './hooks/useTimetableWidgetTitle';
-import HomeTimeTableWidget from './widgets/timetable';
 import GradesWidget from './widgets/Grades';
-import { usePeriodsData } from '../grades/hooks/usePeriodsData';
-import { useGradesData } from '../grades/hooks/useGradesData';
-import MaskedView from '@react-native-masked-view/masked-view';
-import LinearGradient from 'react-native-linear-gradient';
-import MainTabErrorBoundary from '@/ui/components/MainTabErrorBoundary';
-import { Dynamic } from '@/ui/components/Dynamic';
-import Stack from '@/ui/components/Stack';
-import Typography from '@/ui/components/Typography';
-import Icon from '@/ui/components/Icon';
-import Button from '@/ui/new/Button';
+import LatestGradesWidget, { LatestGradeItem } from './widgets/LatestGrades';
+import NewsWidget from './widgets/News';
+import TasksWidget from './widgets/Tasks';
+import HomeTimeTableWidget from './widgets/timetable';
 
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const bottomTabBarHeight = insets.bottom + 16;
   const topBarHeight = insets.top + 56 + (insets.right > 10 ? 10 : 0);
   const focused = useIsFocused();
@@ -44,7 +59,8 @@ const HomeScreen = () => {
   const initializeTransport = useAccountStore((state) => state.initializeTransport);
   const account = accounts.find(a => a.id === lastUsedAccount);
   const router = useRouter();
-  const welcomeModalSeen = useSettingsStore(state => state.personalization.welcomeModalSeen);
+  const personalization = useSettingsStore(state => state.personalization);
+  const welcomeModalSeen = personalization.welcomeModalSeen;
   const mutateSettings = useSettingsStore(state => state.mutateProperty);
 
   React.useEffect(() => {
@@ -66,12 +82,16 @@ const HomeScreen = () => {
     let rootNavigation = navigation;
     while (!rootNavigation.getState()?.routes.some(route => route.name === "(tabs)")) {
       const parent = rootNavigation.getParent();
-      if (!parent) return;
+      if (!parent) {
+        return;
+      }
       rootNavigation = parent;
     }
 
     return (rootNavigation as NativeStackNavigationProp<ParamListBase>).addListener("transitionEnd", event => {
-      if (!event.data.closing) setTabsAppeared(true);
+      if (!event.data.closing) {
+        setTabsAppeared(true);
+      }
     });
   }, [navigation]);
 
@@ -86,7 +106,9 @@ const HomeScreen = () => {
     (async () => {
       if (!consentChecked.current) {
         const consent = await checkConsent();
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         consentChecked.current = true;
         if (!consent.given) {
           router.push("../consent");
@@ -110,46 +132,216 @@ const HomeScreen = () => {
   const timetableTitle = useTimetableWidgetTitle(courses);
 
   const { currentPeriod } = usePeriodsData();
-  const { grades, history, averages, refresh: refreshGrades } = useGradesData(currentPeriod);
+  const { subjects, grades, history, averages, refresh: refreshGrades } = useGradesData(currentPeriod);
+
+  const serviceIds = React.useMemo(
+    () => account?.services?.map(service => service.id) ?? [],
+    [account?.services]
+  );
+
+  // Tasks widget data (current + next week)
+  const currentWeek = getWeekNumberFromDate(new Date());
+  const taskWeeks = React.useMemo(() => [currentWeek, currentWeek + 1], [currentWeek]);
+  const [tasksRefresh, setTasksRefresh] = React.useState(0);
+  const homeworkByWeek = useHomeworkForWeeks(taskWeeks, tasksRefresh);
+  const wasFocusedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (focused) {
+      if (wasFocusedRef.current) {
+        setTasksRefresh(prev => prev + 1);
+      }
+      wasFocusedRef.current = true;
+    }
+  }, [focused]);
+
+  const upcomingTasks = React.useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const cutoff = startOfToday.getTime();
+    const seen = new Set<string>();
+    const collected: SharedHomework[] = [];
+
+    for (const week of taskWeeks) {
+      const list = homeworkByWeek[week] ?? [];
+      for (const item of list) {
+        const belongsToAccount = item.custom
+          ? item.createdByAccount === account?.id
+          : serviceIds.includes(item.createdByAccount);
+        if (!belongsToAccount || item.isDone || new Date(item.dueDate).getTime() < cutoff) {
+          continue;
+        }
+        const id = getHomeworkRouteId(item);
+        if (!seen.has(id)) {
+          seen.add(id);
+          collected.push(item);
+        }
+      }
+    }
+
+    return collected.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  }, [homeworkByWeek, taskWeeks, account?.id, serviceIds]);
+
+  const handleToggleTask = React.useCallback(async (task: SharedHomework) => {
+    const id = getHomeworkRouteId(task);
+    const nextDone = !task.isDone;
+    try {
+      if (!task.custom) {
+        const manager = getManager();
+        await manager?.setHomeworkCompletion(task, nextDone);
+      }
+      await updateHomeworkIsDone(id, nextDone);
+      setTasksRefresh(prev => prev + 1);
+      if (nextDone) {
+        notificationAsync(NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      warn(`Unable to toggle task from home widget: ${String(error)}`, "HomeScreen");
+    }
+  }, []);
+
+  // Latest grades widget data
+  const recentGrades = React.useMemo<LatestGradeItem[]>(() => {
+    const flattened = subjects.flatMap(subject =>
+      (subject.grades ?? []).map(grade => ({ ...grade, subject }))
+    );
+    return flattened
+      .sort((a, b) => (b.givenAt?.getTime() ?? 0) - (a.givenAt?.getTime() ?? 0))
+      .slice(0, 6);
+  }, [subjects]);
+
+  // News widget data
+  const allNews = useNews(tasksRefresh);
+  const accountNews = React.useMemo(
+    () =>
+      allNews
+        .filter(item => serviceIds.includes(item.createdByAccount))
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
+    [allNews, serviceIds]
+  );
 
   const [refreshing, setRefreshing] = React.useState(false);
   const handleRefresh = React.useCallback(async () => {
     setRefreshing(true);
     try {
       await refresh();
-      // The grades widget keeps its own cache, the timetable reads the database.
       await refreshGrades();
+      const manager = getManager();
+      if (manager) {
+        await Promise.allSettled([
+          ...taskWeeks.map(week => manager.getHomeworks(week)),
+          manager.getNews(),
+        ]);
+      }
+      setTasksRefresh(prev => prev + 1);
     } finally {
       setRefreshing(false);
     }
-  }, [refresh, refreshGrades]);
+  }, [refresh, refreshGrades, taskWeeks]);
+
   const gradesWidgetHidden = grades.length === 0;
 
   const renderTimeTable = React.useCallback(() => <HomeTimeTableWidget courses={courses} />, [courses]);
+  const renderTasks = React.useCallback(
+    () => <TasksWidget tasks={upcomingTasks} onToggleTask={handleToggleTask} />,
+    [upcomingTasks, handleToggleTask]
+  );
   const renderGrades = React.useCallback(
     () => <GradesWidget history={history} averages={averages} />,
     [history, averages]
   );
-  const data: HomeWidgetItem[] = React.useMemo(() => [
-    {
-      icon: <Papicons name={"Calendar"} />,
-      title: timetableTitle,
-      redirect: "(tabs)/calendar",
-      hidden: courses.length === 0,
-      render: renderTimeTable
-    },
-    {
-      icon: <Papicons name={"Grades"} />,
-      title: t("Home_Widget_Grades_Average"),
-      redirect: "(tabs)/grades",
-      hidden: gradesWidgetHidden,
-      render: renderGrades
-    }
-  ], [courses.length, gradesWidgetHidden, renderGrades, renderTimeTable, timetableTitle]);
+  const renderLatestGrades = React.useCallback(
+    () => <LatestGradesWidget grades={recentGrades} />,
+    [recentGrades]
+  );
+  const renderNews = React.useCallback(() => <NewsWidget news={accountNews} />, [accountNews]);
+
+  const widgetRegistry = React.useMemo<Map<HomeWidgetId, HomeWidgetItem>>(
+    () =>
+      new Map<HomeWidgetId, HomeWidgetItem>([
+        [
+          "timetable",
+          {
+            id: "timetable",
+            icon: <Papicons name={"Calendar"} />,
+            title: timetableTitle,
+            redirect: "(tabs)/calendar",
+            hidden: courses.length === 0,
+            render: renderTimeTable,
+          },
+        ],
+        [
+          "tasks",
+          {
+            id: "tasks",
+            icon: <Papicons name={"tasks"} />,
+            title: t("Home_Widget_NewHomeworks"),
+            redirect: "(tabs)/tasks",
+            hidden: upcomingTasks.length === 0,
+            render: renderTasks,
+          },
+        ],
+        [
+          "grades_average",
+          {
+            id: "grades_average",
+            icon: <Papicons name={"Grades"} />,
+            title: t("Home_Widget_Grades_Average"),
+            redirect: "(tabs)/grades",
+            hidden: gradesWidgetHidden,
+            render: renderGrades,
+          },
+        ],
+        [
+          "latest_grades",
+          {
+            id: "latest_grades",
+            icon: <Papicons name={"Star"} />,
+            title: t("Home_Widget_NewGrades"),
+            redirect: "(tabs)/grades",
+            hidden: recentGrades.length === 0,
+            render: renderLatestGrades,
+          },
+        ],
+        [
+          "news",
+          {
+            id: "news",
+            icon: <Papicons name={"Newspaper"} />,
+            title: t("Home_Widget_News"),
+            redirect: "(features)/(news)/news",
+            hidden: accountNews.length === 0,
+            render: renderNews,
+          },
+        ],
+      ]),
+    [
+      accountNews.length,
+      courses.length,
+      gradesWidgetHidden,
+      recentGrades.length,
+      renderGrades,
+      renderLatestGrades,
+      renderNews,
+      renderTasks,
+      renderTimeTable,
+      timetableTitle,
+      upcomingTasks.length,
+    ]
+  );
+
+  const configuredWidgets = React.useMemo(
+    () => getHomeWidgetsForAccount(personalization, lastUsedAccount),
+    [personalization, lastUsedAccount]
+  );
 
   const visibleWidgets = React.useMemo(
-    () => data.filter(item => !item.hidden && (!item.dev || __DEV__)),
-    [data]
+    () =>
+      configuredWidgets
+        .filter(config => config.enabled)
+        .map(config => widgetRegistry.get(config.id))
+        .filter((item): item is HomeWidgetItem => Boolean(item && !item.hidden && (!item.dev || __DEV__))),
+    [configuredWidgets, widgetRegistry]
   );
   const allWidgetsHidden = visibleWidgets.length === 0;
 
@@ -165,7 +357,7 @@ const HomeScreen = () => {
               <HomeWidget item={item} />
             </Reanimated.View>
           )}
-          keyExtractor={(item) => item.title}
+          keyExtractor={(item, index) => item.id ?? `${item.title}-${index}`}
           ListHeaderComponent={<HomeHeader />}
           style={{ flex: 1 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#fff" progressViewOffset={topBarHeight} />}
@@ -181,8 +373,26 @@ const HomeScreen = () => {
           }}
           data={visibleWidgets}
           ListFooterComponent={
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 12, alignItems: 'center', paddingBottom: 12 }}>
               {allWidgetsHidden && <HomeEmptyState />}
+              <Pressable
+                onPress={() => router.push("/(settings)/home_widgets")}
+                style={({ pressed }) => ({
+                  opacity: pressed ? 0.7 : 1,
+                  backgroundColor: theme.dark ? theme.colors.card : "#FFFFFFCC",
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                })}
+              >
+                <Papicons name="Grid" size={16} color={String(theme.colors.text)} opacity={0.75} />
+                <Typography variant="body2" color="text" style={{ opacity: 0.85 }}>
+                  {t("Home_Widgets_Customize")}
+                </Typography>
+              </Pressable>
             </View>
           }
         />
@@ -208,7 +418,7 @@ const HomeEmptyState = React.memo(() => (
 ));
 HomeEmptyState.displayName = "HomeEmptyState";
 
-const HomeViewContainer = ({ children }) => {
+const HomeViewContainer = ({ children }: { children: React.ReactNode }) => {
   const insets = useSafeAreaInsets();
 
   return (
@@ -226,11 +436,11 @@ const HomeViewContainer = ({ children }) => {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }} edges={["left", "right"]}>
-      {children}
+        {children}
       </SafeAreaView>
     </MaskedView>
-  )
-}
+  );
+};
 
 const HomeScreenWithBoundary = () => (
   <MainTabErrorBoundary>

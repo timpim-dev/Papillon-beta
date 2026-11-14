@@ -110,6 +110,14 @@ export default function Layout() {
           }}
         />
         <Stack.Screen
+          name="home_widgets"
+          options={{
+            headerTitle: t("Settings_HomeWidgets_Title"),
+            headerBackButtonDisplayMode: "minimal",
+            headerLargeTitle: false,
+          }}
+        />
+        <Stack.Screen
           name="edit_subject"
           options={{
             headerTitle: t("Settings_SubjectEdit_Title"),

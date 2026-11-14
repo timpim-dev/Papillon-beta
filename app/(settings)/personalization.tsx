@@ -262,6 +262,26 @@ const PersonalizationSettings = () => {
           </List.SectionTitle>
           <List.Item
             onPress={() => {
+              router.push("/(settings)/home_widgets");
+            }}
+          >
+            <List.Leading>
+              <Icon>
+                <Papicons name={"Grid"} />
+              </Icon>
+            </List.Leading>
+            <Typography variant={"title"}>{t("Settings_HomeWidgets_Title")}</Typography>
+            <Typography variant={"body1"}
+              color={"textSecondary"}
+            >{t("Settings_HomeWidgets_Description")}</Typography>
+            <List.Trailing>
+              <Icon>
+                <Papicons name="ChevronRight" opacity={0.7} />
+              </Icon>
+            </List.Trailing>
+          </List.Item>
+          <List.Item
+            onPress={() => {
               router.push("/(settings)/tabs");
             }}
           >
