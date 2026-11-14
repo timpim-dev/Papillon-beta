@@ -58,6 +58,7 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
             isNight,
             R.id.grade_1_container,
             R.id.grade_1_bg,
+            R.id.grade_1_emoji,
             R.id.grade_1_subject,
             R.id.grade_1_subtitle,
             R.id.grade_1_date,
@@ -70,6 +71,7 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
             isNight,
             R.id.grade_2_container,
             R.id.grade_2_bg,
+            R.id.grade_2_emoji,
             R.id.grade_2_subject,
             R.id.grade_2_subtitle,
             R.id.grade_2_date,
@@ -88,6 +90,7 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
       isNight: Boolean,
       containerId: Int,
       bgId: Int,
+      emojiId: Int,
       subjectId: Int,
       subtitleId: Int,
       dateId: Int,
@@ -111,6 +114,12 @@ class LatestGradesWidgetProvider : AppWidgetProvider() {
       views.setTextColor(scoreId, tintedText)
       views.setTextColor(outOfId, tintedSec)
 
+      if (!grade.emoji.isNullOrBlank()) {
+        views.setViewVisibility(emojiId, View.VISIBLE)
+        views.setTextViewText(emojiId, grade.emoji)
+      } else {
+        views.setViewVisibility(emojiId, View.GONE)
+      }
       views.setTextViewText(subjectId, grade.subject)
       views.setTextViewText(subtitleId, grade.description.ifBlank { "Évaluation" })
       views.setTextViewText(dateId, WidgetStore.formatRelativeDistanceDay(grade.date))
