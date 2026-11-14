@@ -161,14 +161,15 @@ const defaultPersonalization: Personalization = {
   homeworkReminderHour: 18,
   homeworkReminderMinute: 30,
   homeworkReminderDaysBefore: 1,
+  homeworkDailyDigestEnabled: true,
   communicationNotificationsEnabled: true,
+  newsNotificationsEnabled: true,
   aiAssistantEnabled: true,
   aiFirstOpenAsked: false,
   aiCookiesAccepted: false,
   aiProvider: "gemini",
   aiModel: "gemini-2.5-flash",
-  rewardsOptIn: null,
-  rewardsAppOpenCount: 0,
+  rewardsPocketBaseBackupEnabled: true,
   rewardsPocketBaseUrl: "https://pocketbase.felixx.dev",
 };
 

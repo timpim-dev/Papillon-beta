@@ -2,16 +2,25 @@ import { Papicons } from "@getpapillon/papicons";
 import { HeaderBackButton, useTheme } from "expo-router/react-navigation";
 import { Stack as ExpoStack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import * as WebBrowser from "expo-web-browser";
 import { t } from "i18next";
 import React, { useCallback, useRef, useState } from "react";
 
 import { AndroidHeaderMenu } from "@/components/AndroidHeaderItems";
+import { AudioHomeworkRecorder } from "@/components/homework/AudioHomeworkRecorder";
 import ModalOverhead from "@/components/ModalOverhead";
 import { deleteHomeworkFromDatabase, getHomeworkById, updateHomeworkIsDone } from "@/database/useHomework";
 import { getManager } from "@/services/shared";
+import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
+import { getHomeworkUploadMeta } from "@/utils/homework/uploadMeta";
 import { cancelHomeworkReminder } from "@/utils/notifications/homeworkReminders";
-import { awardHomeworkPoints } from "@/utils/rewards/rewardsService";
+import {
+  awardHomeworkPoints,
+  awardMicroStepPoints,
+  awardTaskKickoffPoints,
+  getTaskMicroSteps,
+  saveTaskMicroSteps,
+  TaskMicroStep,
+} from "@/utils/rewards/rewardsService";
 import AnimatedPressable from "@/ui/components/AnimatedPressable";
 import Icon from "@/ui/components/Icon";
 import Stack from "@/ui/components/Stack";
@@ -21,14 +30,13 @@ import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
 import { getSubjectColor } from "@/utils/subjects/colors";
 import { getSubjectEmoji } from "@/utils/subjects/emoji";
 import { getSubjectName } from "@/utils/subjects/name";
-import { Platform } from "react-native";
+import { Platform, Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import List from "@/ui/new/List";
 import Typography from "@/ui/new/Typography";
-import { Homework } from "@/services/shared/homework";
+import { Homework, ReturnFormat } from "@/services/shared/homework";
 import ActivityIndicator from "@/ui/components/ActivityIndicator";
 import SafeHorizontalView from "@/ui/components/SafeHorizontalView";
-import { View } from "react-native";
 
 const Task = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,6 +46,8 @@ const Task = () => {
   const [task, setTask] = useState<Homework>();
   const [loading, setLoading] = useState(true);
   const [isDone, setIsDone] = useState(false);
+  const [microSteps, setMicroSteps] = useState<TaskMicroStep[]>([]);
+  const [newStepTitle, setNewStepTitle] = useState("");
   const taskRef = useRef<Homework>(undefined);
 
   // Read on every focus rather than once: a custom task can be edited or
@@ -45,6 +55,10 @@ const Task = () => {
   // cannot change from here, so they are not fetched again.
   useFocusEffect(
     useCallback(() => {
+      if (id) {
+        setMicroSteps(getTaskMicroSteps(id));
+      }
+
       if (taskRef.current && !taskRef.current.custom) {
         return;
       }
@@ -60,9 +74,22 @@ const Task = () => {
             router.back();
             return;
           }
-          taskRef.current = result;
-          setTask(result);
-          setIsDone(result?.isDone ?? false);
+          const meta = result ? getHomeworkUploadMeta(result.id) : null;
+          const enriched = result
+            ? {
+                ...result,
+                canUpload: result.canUpload ?? meta?.canUpload,
+                uploadedAttachment:
+                  result.uploadedAttachment ?? meta?.uploadedAttachment,
+                maxUploadSizeBytes:
+                  result.maxUploadSizeBytes ?? meta?.maxUploadSizeBytes,
+                pronoteAssignmentId:
+                  result.pronoteAssignmentId ?? meta?.pronoteAssignmentId,
+              }
+            : undefined;
+          taskRef.current = enriched;
+          setTask(enriched);
+          setIsDone(enriched?.isDone ?? false);
         })
         .finally(() => {
           if (!cancelled) {
@@ -261,19 +288,168 @@ const Task = () => {
             <Typography>{formatedTask}</Typography>
           </List.Item>
         </List.Section>
+
+        {(task.returnFormat === ReturnFormat.AUDIO_RECORDING ||
+          task.returnFormat === ReturnFormat.FILE_UPLOAD ||
+          task.canUpload ||
+          Boolean(task.uploadedAttachment)) && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <AudioHomeworkRecorder
+              homework={task}
+              accentColor={subjectInfo.color}
+              onUpdated={updated => {
+                taskRef.current = updated;
+                setTask(updated);
+              }}
+            />
+          </View>
+        )}
+
+        <List.Section>
+          <List.SectionTitle>
+            <List.Label>Démarrer &amp; Focus TDAH</List.Label>
+          </List.SectionTitle>
+
+          <List.Item
+            onPress={() => {
+              if (id) {
+                void awardTaskKickoffPoints(id);
+              }
+              router.push({
+                pathname: "/(features)/(rewards)/rewards",
+                params: { homeworkId: id, subject: subjectInfo.name },
+              });
+            }}
+          >
+            <List.Leading>
+              <Icon>
+                <Papicons name="Clock" color={subjectInfo.color} />
+              </Icon>
+            </List.Leading>
+            <Typography variant="title">Lancer un sprint Focus</Typography>
+            <Typography variant="body1" color="textSecondary">
+              Minuteur court (5–25 min) + points de démarrage
+            </Typography>
+          </List.Item>
+
+          {microSteps.map(step => (
+            <List.Item
+              key={step.id}
+              onPress={() => {
+                const toggled = microSteps.map(s =>
+                  s.id === step.id ? { ...s, done: !s.done } : s
+                );
+                setMicroSteps(toggled);
+                if (id) {
+                  saveTaskMicroSteps(id, toggled);
+                  if (!step.done) {
+                    void awardMicroStepPoints(id, step.id);
+                  }
+                }
+              }}
+            >
+              <List.Leading>
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: step.done ? "#10B981" : subjectInfo.color,
+                    backgroundColor: step.done ? "#10B981" : "transparent",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {step.done ? (
+                    <Papicons name="Check" size={14} color="#FFFFFF" />
+                  ) : null}
+                </View>
+              </List.Leading>
+              <Typography
+                variant="body1"
+                style={{
+                  textDecorationLine: step.done ? "line-through" : "none",
+                  opacity: step.done ? 0.55 : 1,
+                }}
+              >
+                {step.label}
+              </Typography>
+              <List.Trailing>
+                <Pressable
+                  onPress={() => {
+                    const next = microSteps.filter(s => s.id !== step.id);
+                    setMicroSteps(next);
+                    if (id) saveTaskMicroSteps(id, next);
+                  }}
+                >
+                  <Papicons name="Trash" size={16} color={String(colors.text) + "66"} />
+                </Pressable>
+              </List.Trailing>
+            </List.Item>
+          ))}
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+            }}
+          >
+            <TextInput
+              value={newStepTitle}
+              onChangeText={setNewStepTitle}
+              placeholder="Ajouter une micro-étape (+5 pts)…"
+              placeholderTextColor={String(colors.text) + "66"}
+              style={{
+                flex: 1,
+                color: colors.text,
+                fontSize: 14,
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 10,
+                backgroundColor: String(colors.text) + "0C",
+              }}
+            />
+            <Pressable
+              onPress={() => {
+                const label = newStepTitle.trim();
+                if (!label || !id) return;
+                const next: TaskMicroStep[] = [
+                  ...microSteps,
+                  { id: `${Date.now()}`, label, done: false },
+                ];
+                setMicroSteps(next);
+                saveTaskMicroSteps(id, next);
+                setNewStepTitle("");
+                void awardTaskKickoffPoints(id);
+              }}
+              style={{
+                backgroundColor: subjectInfo.color,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 13 }}>
+                Ajouter
+              </Text>
+            </Pressable>
+          </View>
+        </List.Section>
+
         {task.attachments.length > 0 && (
           <List.Section>
             <List.SectionTitle>
               <List.Label>{t("Modal_Task_Attachments")}</List.Label>
             </List.SectionTitle>
 
-            {task.attachments.map(attachment => (
+            {task.attachments.map((attachment, idx) => (
               <List.Item
-                onPress={() =>
-                  WebBrowser.openBrowserAsync(attachment.url, {
-                    presentationStyle: "formSheet",
-                  })
-                }
+                key={`${attachment.url}-${idx}`}
+                onPress={() => openAttachmentViewer(router, attachment)}
               >
                 <List.Leading>
                   <Icon>

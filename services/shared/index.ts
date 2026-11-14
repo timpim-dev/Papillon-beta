@@ -465,6 +465,35 @@ export class AccountManager {
     );
   }
 
+  async uploadHomeworkFile(
+    homework: Homework,
+    file: { uri: string; name: string; mimeType?: string; size?: number }
+  ): Promise<Homework> {
+    return await this.fetchData(
+      Capabilities.HOMEWORK,
+      async client => {
+        if (!client.uploadHomeworkFile) {
+          throw new Error("Ce service ne permet pas encore l'envoi de devoirs.");
+        }
+        return await client.uploadHomeworkFile(homework, file);
+      },
+      { multiple: false, clientId: homework.createdByAccount }
+    );
+  }
+
+  async removeHomeworkFile(homework: Homework): Promise<Homework> {
+    return await this.fetchData(
+      Capabilities.HOMEWORK,
+      async client => {
+        if (!client.removeHomeworkFile) {
+          throw new Error("Ce service ne permet pas encore la suppression du devoir rendu.");
+        }
+        return await client.removeHomeworkFile(homework);
+      },
+      { multiple: false, clientId: homework.createdByAccount }
+    );
+  }
+
   async createMail(
     accountId: string,
     subject: string,

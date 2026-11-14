@@ -1,7 +1,6 @@
 import { Papicons } from "@getpapillon/papicons";
-import { Stack as ExpoStack, useLocalSearchParams } from "expo-router";
+import { Stack as ExpoStack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "expo-router/react-navigation";
-import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,11 +23,14 @@ import Stack from "@/ui/components/Stack";
 import Typography from "@/ui/new/Typography";
 import { getProfileColorByName } from "@/utils/chats/colors";
 import { getInitials } from "@/utils/chats/initials";
+import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
 import { formatHTML } from "@/utils/format/html";
+import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
 import { buildChatSignature } from "@/utils/notifications/communicationsNotifications";
 
 export default function CommunicationThreadScreen() {
   const { sig } = useLocalSearchParams<{ sig: string }>();
+  const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const initialChat = sig ? getCachedLiveChat(sig) : undefined;
@@ -191,7 +193,7 @@ export default function CommunicationThreadScreen() {
                         key={`${att.url}-${idx}`}
                         onPress={() => {
                           if (att.url) {
-                            void WebBrowser.openBrowserAsync(att.url);
+                            openAttachmentViewer(router, att);
                           }
                         }}
                         style={{
@@ -203,7 +205,7 @@ export default function CommunicationThreadScreen() {
                           backgroundColor: String(colors.primary) + "16",
                         }}
                       >
-                        <Papicons name="Link" size={16} color={String(colors.primary)} />
+                        <Papicons name={getAttachmentIcon(att)} size={16} color={String(colors.primary)} />
                         <Typography variant="caption" style={{ color: colors.primary, flex: 1 }} numberOfLines={1}>
                           {att.name || "Pièce jointe"}
                         </Typography>

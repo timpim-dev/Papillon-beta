@@ -1,6 +1,6 @@
 import { Papicons } from '@getpapillon/papicons';
 import { useHeaderHeight, useTheme } from "expo-router/react-navigation";
-import { Link, useLocalSearchParams } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { t } from "i18next";
 import React, { useCallback, useEffect, useState } from "react";
 import { Platform, View } from "react-native";
@@ -29,6 +29,8 @@ import { getSubjectEmoji } from "@/utils/subjects/emoji";
 import { getSubjectName } from "@/utils/subjects/name";
 import { warn } from "@/utils/logger/logger";
 import SafeHorizontalView from "@/ui/components/SafeHorizontalView";
+import { formatAttachmentTitle, openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
+import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
 
 interface SubjectInfo {
   name: string;
@@ -85,6 +87,7 @@ const GradeBadge = ({
 
 export default function GradesModal() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const theme = useTheme();
   const colors = theme.colors;
   const [grade, setGrade] = useState<SharedGrade>();
@@ -531,6 +534,41 @@ export default function GradesModal() {
                 </ContainedNumber>
               </List.Trailing>
             </List.Item>
+          </List.Section>
+        )}
+        {(grade.subjectFile?.url || grade.correctionFile?.url) && (
+          <List.Section>
+            <List.SectionTitle>
+              <List.Label>Documents</List.Label>
+            </List.SectionTitle>
+            {grade.subjectFile?.url && (
+              <List.Item
+                onPress={() => openAttachmentViewer(router, grade.subjectFile!)}
+              >
+                <List.Leading>
+                  <Icon>
+                    <Papicons name={getAttachmentIcon(grade.subjectFile)} />
+                  </Icon>
+                </List.Leading>
+                <Typography variant="title" numberOfLines={1}>
+                  Sujet — {formatAttachmentTitle(grade.subjectFile)}
+                </Typography>
+              </List.Item>
+            )}
+            {grade.correctionFile?.url && (
+              <List.Item
+                onPress={() => openAttachmentViewer(router, grade.correctionFile!)}
+              >
+                <List.Leading>
+                  <Icon>
+                    <Papicons name={getAttachmentIcon(grade.correctionFile)} />
+                  </Icon>
+                </List.Leading>
+                <Typography variant="title" numberOfLines={1}>
+                  Corrigé — {formatAttachmentTitle(grade.correctionFile)}
+                </Typography>
+              </List.Item>
+            )}
           </List.Section>
         )}
       </List>

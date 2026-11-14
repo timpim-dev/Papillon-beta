@@ -24,14 +24,13 @@ import { NativeHeaderPressable, NativeHeaderSide } from "@/ui/components/NativeH
 import Typography from "@/ui/components/Typography";
 import { getInitials } from "@/utils/chats/initials";
 import ActionMenu, { type NativeActionEvent } from "@/ui/components/ActionMenu";
-import {
-  extractPronoteRewardsProfile,
-  PpUserRecord,
-} from "@/utils/rewards/pocketbaseClient";
+import { formatSchoolName } from "@/utils/format/formatSchoolName";
 import { getRewardById } from "@/utils/rewards/rewardsCatalog";
 import {
-  ensureRewardsUserSynced,
-  getCachedRewardsUser,
+  AdhdRewardsLocalState,
+  getAdhdRewardsState,
+  getSpendablePoints,
+  syncRewardsWithPocketBaseBackup,
 } from "@/utils/rewards/rewardsService";
 
 export default function CustomProfileScreen() {
@@ -42,18 +41,15 @@ export default function CustomProfileScreen() {
   const personalization = useSettingsStore((state) => state.personalization);
 
   const account = accounts.find((a) => a.id === lastUsedAccount);
-  const [rewardsUser, setRewardsUser] = useState<PpUserRecord | null>(() => getCachedRewardsUser());
-  const pronoteProfile = extractPronoteRewardsProfile(account);
+  const [rewardsState, setRewardsState] = useState<AdhdRewardsLocalState>(() => getAdhdRewardsState());
 
   useFocusEffect(
     useCallback(() => {
-      setRewardsUser(getCachedRewardsUser());
-      if (personalization.rewardsOptIn) {
-        void ensureRewardsUserSynced().then(synced => {
-          if (synced) setRewardsUser(synced);
-        });
-      }
-    }, [personalization.rewardsOptIn])
+      setRewardsState(getAdhdRewardsState());
+      void syncRewardsWithPocketBaseBackup().then(synced => {
+        setRewardsState(synced);
+      });
+    }, [])
   );
 
   const [firstName, setFirstName] = useState<string>(account?.firstName ?? "");
@@ -213,25 +209,21 @@ export default function CustomProfileScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
                 <Papicons name="Crown" size={24} color="#F59E0B" />
                 <View style={{ flex: 1 }}>
-                  <Typography variant="title">Récompenses & Classements</Typography>
+                  <Typography variant="title">Focus & Récompenses TDAH</Typography>
                   <Typography variant="caption" color="secondary" numberOfLines={1}>
-                    {[rewardsUser?.school_name || pronoteProfile.schoolName, rewardsUser?.city || pronoteProfile.city]
-                      .filter(Boolean)
-                      .join(" • ") || "Profil Pronote synchronisé"}
+                    {formatSchoolName(account?.schoolName ?? "") || "Sauvegarde PocketBase privée"}
                   </Typography>
                 </View>
               </View>
               <Typography variant="title" style={{ color: String(colors.primary) }}>
-                {rewardsUser?.points_total ?? 0} pts
+                {getSpendablePoints(rewardsState)} pts
               </Typography>
             </View>
 
             <Typography variant="body2" color="secondary">
-              {personalization.rewardsOptIn
-                ? `${rewardsUser?.avatar_emoji || "🦋"} Série : ${rewardsUser?.streak_days ?? 0}j • Badge : ${
-                    getRewardById(personalization.rewardsEquippedBadge)?.title ?? "Papillon Argenté"
-                  }`
-                : "Active les classements (Amis, Établissement, Ville, Mondial) et débloque des badges & thèmes."}
+              {`Focus aujourd'hui : ${rewardsState.focusMinutesToday} min • Total effort : ${rewardsState.totalEarnedPoints} pts • Badge : ${
+                getRewardById(personalization.rewardsEquippedBadge)?.title ?? "Premier Pas"
+              }`}
             </Typography>
 
             <TouchableOpacity
@@ -254,7 +246,7 @@ export default function CustomProfileScreen() {
             >
               <Papicons name="Crown" size={18} color="#FFFFFF" />
               <Typography variant="body1" style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                Ouvrir les récompenses & classements
+                Lancer une session Focus & Récompenses
               </Typography>
             </TouchableOpacity>
           </View>

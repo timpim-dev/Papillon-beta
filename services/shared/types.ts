@@ -21,7 +21,7 @@ import {
 } from "@/services/shared/canteen";
 import { Chat, Message, Recipient } from "@/services/shared/chat";
 import { Period, PeriodGrades } from "@/services/shared/grade";
-import { Homework } from "@/services/shared/homework";
+import { Homework, HomeworkUploadFileInput } from "@/services/shared/homework";
 import { News } from "@/services/shared/news";
 import { Course, CourseDay, CourseResource } from "@/services/shared/timetable";
 import { Auth, Services } from "@/stores/account/types";
@@ -93,6 +93,11 @@ export interface SchoolServicePlugin {
     homework: Homework,
     state?: boolean
   ) => Promise<Homework>;
+  uploadHomeworkFile?: (
+    homework: Homework,
+    file: HomeworkUploadFileInput
+  ) => Promise<Homework>;
+  removeHomeworkFile?: (homework: Homework) => Promise<Homework>;
   createMail?: (
     subject: string,
     content: string,

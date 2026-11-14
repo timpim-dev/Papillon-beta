@@ -232,8 +232,8 @@ export default function SettingsIndex() {
     },
     {
       icon: <Papicons name={"Crown"} />,
-      title: "Récompenses & Amis",
-      description: "Points, badges, classements & QR",
+      title: "Focus & Récompenses",
+      description: "Points d'effort TDAH, minuteur & récompenses",
       color: "#F59E0B",
       onPress: () => {
         router.navigate("/(features)/(rewards)/rewards")

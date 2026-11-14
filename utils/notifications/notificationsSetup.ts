@@ -3,9 +3,12 @@ import { Platform } from "react-native";
 
 export const HOMEWORK_CHANNEL_ID = "homework-reminders";
 export const COMMUNICATIONS_CHANNEL_ID = "communications-alerts";
+export const NEWS_SURVEYS_CHANNEL_ID = "news-surveys-alerts";
 export const STUDY_CHANNEL_ID = "study-reminders";
+export const FOCUS_CHANNEL_ID = "focus-timer";
 
 let handlerInitialized = false;
+let permissionPromptAttempted = false;
 
 export function configureNotificationHandler(): void {
   if (handlerInitialized) {
@@ -29,13 +32,19 @@ export async function ensureAndroidNotificationChannels(): Promise<void> {
   }
 
   await Notifications.setNotificationChannelAsync(HOMEWORK_CHANNEL_ID, {
-    name: "Rappels de devoirs",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    name: "Rappels de devoirs non terminés",
+    importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 200, 120, 200],
   });
 
   await Notifications.setNotificationChannelAsync(COMMUNICATIONS_CHANNEL_ID, {
-    name: "Nouvelles communications",
+    name: "Messages & Discussions",
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 150, 250],
+  });
+
+  await Notifications.setNotificationChannelAsync(NEWS_SURVEYS_CHANNEL_ID, {
+    name: "Infos & Sondages",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 150, 250],
   });
@@ -45,12 +54,18 @@ export async function ensureAndroidNotificationChannels(): Promise<void> {
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 200],
   });
+
+  await Notifications.setNotificationChannelAsync(FOCUS_CHANNEL_ID, {
+    name: "Minuteur Focus TDAH",
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 200, 100, 200],
+  });
 }
 
 export async function getNotificationPermissionStatus(): Promise<boolean> {
   try {
     const perms = await Notifications.getPermissionsAsync();
-    return perms.granted;
+    return Boolean(perms.granted);
   } catch {
     return false;
   }
@@ -64,8 +79,31 @@ export async function requestNotificationPermission(): Promise<boolean> {
       return true;
     }
     const requested = await Notifications.requestPermissionsAsync();
-    return requested.granted;
+    return Boolean(requested.granted);
   } catch {
     return false;
   }
+}
+
+/**
+ * Ensures Android channels are registered and prompts at most once per app run
+ * if notifications are enabled in settings and the OS allows asking.
+ */
+export async function ensureNotificationReadyIfEnabled(
+  anyEnabled: boolean
+): Promise<boolean> {
+  if (!anyEnabled) return false;
+  await ensureAndroidNotificationChannels();
+  try {
+    const perms = await Notifications.getPermissionsAsync();
+    if (perms.granted) return true;
+    if (!permissionPromptAttempted && perms.canAskAgain !== false) {
+      permissionPromptAttempted = true;
+      const requested = await Notifications.requestPermissionsAsync();
+      return Boolean(requested.granted);
+    }
+  } catch {
+    // Ignore permission probe failures
+  }
+  return false;
 }

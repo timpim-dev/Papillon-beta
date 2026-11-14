@@ -8,11 +8,18 @@ import { getManager, subscribeManagerUpdate } from "@/services/shared";
 import { useAccountStore } from "@/stores/account";
 import { useSettingsStore } from "@/stores/settings";
 
-import { detectAndNotifyNewChats } from "./communicationsNotifications";
+import {
+  detectAndNotifyNewChats,
+  detectAndNotifyNewNews,
+} from "./communicationsNotifications";
 import { syncHomeworkReminders } from "./homeworkReminders";
-import { configureNotificationHandler } from "./notificationsSetup";
+import {
+  configureNotificationHandler,
+  ensureNotificationReadyIfEnabled,
+} from "./notificationsSetup";
 
-const CHAT_POLL_MIN_INTERVAL_MS = 3 * 60 * 1000;
+const COMM_POLL_MIN_INTERVAL_MS = 2 * 60 * 1000;
+const FOREGROUND_POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 export function useNotificationsSync(): void {
   const router = useRouter();
@@ -30,7 +37,10 @@ export function useNotificationsSync(): void {
   );
 
   const currentWeek = getWeekNumberFromDate(new Date());
-  const weeks = useMemo(() => [currentWeek, currentWeek + 1], [currentWeek]);
+  const weeks = useMemo(
+    () => [currentWeek - 1, currentWeek, currentWeek + 1],
+    [currentWeek]
+  );
   const homeworkByWeek = useHomeworkForWeeks(weeks);
 
   const accountTasks = useMemo(() => {
@@ -48,28 +58,39 @@ export function useNotificationsSync(): void {
       hour: personalization.homeworkReminderHour ?? 18,
       minute: personalization.homeworkReminderMinute ?? 30,
       daysBefore: personalization.homeworkReminderDaysBefore ?? 1,
+      dailyDigestEnabled: personalization.homeworkDailyDigestEnabled ?? true,
     }),
     [
       personalization.homeworkRemindersEnabled,
       personalization.homeworkReminderHour,
       personalization.homeworkReminderMinute,
       personalization.homeworkReminderDaysBefore,
+      personalization.homeworkDailyDigestEnabled,
     ]
   );
 
   const commNotificationsEnabled =
     personalization.communicationNotificationsEnabled ?? true;
+  const newsNotificationsEnabled =
+    personalization.newsNotificationsEnabled ?? true;
 
-  const lastChatCheckRef = useRef<number>(0);
+  const lastPollRef = useRef<number>(0);
 
   useEffect(() => {
     configureNotificationHandler();
 
     const sub = Notifications.addNotificationResponseReceivedListener(response => {
-      const route = response.notification.request.content.data?.route;
+      const data = response.notification.request.content.data as
+        | { route?: unknown; params?: Record<string, string> }
+        | undefined;
+      const route = data?.route;
       if (typeof route === "string" && route.startsWith("/")) {
         try {
-          router.push(route as never);
+          if (data?.params && typeof data.params === "object") {
+            router.push({ pathname: route as never, params: data.params });
+          } else {
+            router.push(route as never);
+          }
         } catch {
           // Ignore invalid routes during cold start
         }
@@ -78,6 +99,20 @@ export function useNotificationsSync(): void {
 
     return () => sub.remove();
   }, [router]);
+
+  useEffect(() => {
+    const anyEnabled =
+      reminderConfig.enabled || commNotificationsEnabled || newsNotificationsEnabled;
+    if (!account || !anyEnabled) {
+      return;
+    }
+    void ensureNotificationReadyIfEnabled(anyEnabled);
+  }, [
+    account,
+    reminderConfig.enabled,
+    commNotificationsEnabled,
+    newsNotificationsEnabled,
+  ]);
 
   useEffect(() => {
     if (!account) {
@@ -95,41 +130,53 @@ export function useNotificationsSync(): void {
       return;
     }
 
-    const checkChats = async () => {
+    const checkMessagesAndNews = async () => {
       const now = Date.now();
-      if (now - lastChatCheckRef.current < CHAT_POLL_MIN_INTERVAL_MS) {
+      if (now - lastPollRef.current < COMM_POLL_MIN_INTERVAL_MS) {
         return;
       }
       const manager = getManager();
       if (!manager) {
         return;
       }
-      lastChatCheckRef.current = now;
+      lastPollRef.current = now;
+
       try {
         const chats = await manager.getChats();
         await detectAndNotifyNewChats(chats, commNotificationsEnabled);
       } catch {
         // Non-blocking background sync
       }
+
+      try {
+        const news = await manager.getNews();
+        await detectAndNotifyNewNews(news, newsNotificationsEnabled);
+      } catch {
+        // Non-blocking background sync
+      }
     };
 
     const unsubManager = subscribeManagerUpdate(() => {
-      void checkChats();
+      void checkMessagesAndNews();
     });
     const appStateSub = AppState.addEventListener("change", nextState => {
       if (nextState === "active") {
-        void checkChats();
+        void checkMessagesAndNews();
       }
     });
 
     const initialTimer = setTimeout(() => {
-      void checkChats();
+      void checkMessagesAndNews();
     }, 2500);
+    const periodicTimer = setInterval(() => {
+      void checkMessagesAndNews();
+    }, FOREGROUND_POLL_INTERVAL_MS);
 
     return () => {
       clearTimeout(initialTimer);
+      clearInterval(periodicTimer);
       unsubManager();
       appStateSub.remove();
     };
-  }, [account, commNotificationsEnabled]);
+  }, [account, commNotificationsEnabled, newsNotificationsEnabled]);
 }

@@ -132,8 +132,8 @@ const UserProfile = ({ subtitle, onPress, loading }: { subtitle?: string, onPres
               }] : AccountsMenuItems),
               {
                 id: 'rewards',
-                title: 'Récompenses & Classements',
-                image: 'trophy',
+                title: 'Focus & Récompenses',
+                image: 'sparkles',
                 papicon: 'crown',
               },
               {

@@ -6,8 +6,8 @@ jest.mock("expo-notifications", () => ({
   scheduleNotificationAsync: jest.fn(async () => "notif-1"),
   setNotificationChannelAsync: jest.fn(async () => {}),
   setNotificationHandler: jest.fn(),
-  getPermissionsAsync: jest.fn(async () => ({ status: "granted" })),
-  requestPermissionsAsync: jest.fn(async () => ({ status: "granted" })),
+  getPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  requestPermissionsAsync: jest.fn(async () => ({ granted: true })),
   AndroidImportance: { DEFAULT: 3, HIGH: 4 },
   SchedulableTriggerInputTypes: { DATE: "date" },
 }));
@@ -57,9 +57,13 @@ jest.mock("@/stores/global", () => {
 
 import { Homework } from "@/services/shared/homework";
 import { Chat } from "@/services/shared/chat";
+import { News } from "@/services/shared/news";
 
-import { diffNewChats } from "./communicationsNotifications";
-import { computeDesiredHomeworkReminders } from "./homeworkReminders";
+import { diffNewChats, diffNewNews } from "./communicationsNotifications";
+import {
+  computeDailyUndoneDigest,
+  computeDesiredHomeworkReminders,
+} from "./homeworkReminders";
 
 describe("homeworkReminders", () => {
   const now = new Date(2026, 10, 14, 14, 0, 0).getTime();
@@ -97,6 +101,40 @@ describe("homeworkReminders", () => {
     expect(triggerDate.getMinutes()).toBe(30);
   });
 
+  it("schedules morning 07:45 catch-up when task due tomorrow was synced after evening hour", () => {
+    const lateEveningNow = new Date(2026, 10, 14, 20, 0, 0).getTime();
+    const dueTomorrow = new Date(2026, 10, 15, 8, 0, 0);
+    const desired = computeDesiredHomeworkReminders(
+      [makeTask({ id: "hw-urgent", dueDate: dueTomorrow })],
+      { enabled: true, hour: 18, minute: 30, daysBefore: 1 },
+      lateEveningNow
+    );
+
+    expect(desired).toHaveLength(1);
+    const trigger = new Date(desired[0].triggerAtMs);
+    expect(trigger.getDate()).toBe(15);
+    expect(trigger.getHours()).toBe(7);
+    expect(trigger.getMinutes()).toBe(45);
+  });
+
+  it("builds a daily undone digest only when upcoming undone tasks exist", () => {
+    const digest = computeDailyUndoneDigest(
+      [makeTask({ id: "hw-1", subject: "Français" })],
+      { enabled: true, hour: 18, minute: 30, daysBefore: 1, dailyDigestEnabled: true },
+      now
+    );
+    expect(digest).not.toBeNull();
+    expect(digest?.undoneCount).toBe(1);
+    expect(digest?.body).toContain("Français");
+
+    const none = computeDailyUndoneDigest(
+      [makeTask({ id: "hw-1", isDone: true })],
+      { enabled: true, hour: 18, minute: 30, daysBefore: 1, dailyDigestEnabled: true },
+      now
+    );
+    expect(none).toBeNull();
+  });
+
   it("returns no reminders when disabled", () => {
     const desired = computeDesiredHomeworkReminders(
       [makeTask({ id: "hw-1" })],
@@ -108,26 +146,55 @@ describe("homeworkReminders", () => {
 });
 
 describe("communicationsNotifications", () => {
-  const makeChat = (id: string, ts: number): Chat => ({
+  const makeChat = (id: string, ts: number, msgCount = 1, unread = 0): Chat => ({
     id,
     subject: `Subject ${id}`,
     creator: "Mme Dupont",
     date: new Date(ts),
     createdByAccount: "acc-1",
+    ref: {
+      participantsMessageID: id,
+      numberOfMessages: msgCount,
+      numberOfMessagesUnread: unread,
+    } as never,
   });
 
-  it("seeds baseline without emitting notifications on initial sync", () => {
-    const first = diffNewChats([makeChat("c1", 1000)], null);
+  const makeNews = (id: string, acknowledged = false, question = false): News => ({
+    id,
+    title: `Info ${id}`,
+    createdAt: new Date(1000),
+    acknowledged,
+    attachments: [],
+    content: "<p>Contenu</p>",
+    author: "Vie scolaire",
+    category: "Information",
+    createdByAccount: "acc-1",
+    question,
+  });
+
+  it("seeds baseline without emitting notifications on initial sync and notifies on replies or new threads", () => {
+    const first = diffNewChats([makeChat("c1", 1000, 1, 0)], null);
     expect(first.newChats).toEqual([]);
-    expect(first.nextKnownSignatures).toHaveLength(1);
-  });
 
-  it("detects genuinely new or updated chats after baseline exists", () => {
-    const first = diffNewChats([makeChat("c1", 1000)], null);
+    const reply = diffNewChats([makeChat("c1", 2000, 2, 1)], first.nextKnownSignatures);
+    expect(reply.newChats.map(c => c.id)).toEqual(["c1"]);
+
     const second = diffNewChats(
-      [makeChat("c1", 1000), makeChat("c2", 2000)],
-      first.nextKnownSignatures
+      [makeChat("c1", 2000, 2, 0), makeChat("c2", 3000, 1, 1)],
+      reply.nextKnownSignatures
     );
     expect(second.newChats.map(c => c.id)).toEqual(["c2"]);
+  });
+
+  it("detects new unacknowledged infos and surveys after initial baseline seed", () => {
+    const seed = diffNewNews([makeNews("n1", false)], null);
+    expect(seed.newItems).toEqual([]);
+
+    const next = diffNewNews(
+      [makeNews("n1", false), makeNews("n2", false, true), makeNews("n3", true)],
+      seed.nextKnownSignatures
+    );
+    expect(next.newItems.map(i => i.id)).toEqual(["n2"]);
+    expect(next.newItems[0].question).toBe(true);
   });
 });

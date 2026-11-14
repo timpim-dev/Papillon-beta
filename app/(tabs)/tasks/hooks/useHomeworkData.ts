@@ -237,7 +237,7 @@ export const useHomeworkData = (weeks: number[], alert: any) => {
         if (done) {
           notificationAsync(NotificationFeedbackType.Success);
           void cancelHomeworkReminder(id);
-          void awardHomeworkPoints(id);
+          void awardHomeworkPoints(id, item.dueDate);
         }
         trackAdvancedEvent(done ? "task_ticked" : "task_unticked");
       }

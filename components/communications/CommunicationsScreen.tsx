@@ -1,5 +1,5 @@
 import { Papicons } from "@getpapillon/papicons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "expo-router/react-navigation";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
@@ -26,6 +26,7 @@ import { warn } from "@/utils/logger/logger";
 import {
   buildChatSignature,
   detectAndNotifyNewChats,
+  detectAndNotifyNewNews,
   getReadChatSignatures,
   markAllChatsAsRead,
   markChatAsRead,
@@ -77,11 +78,17 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const notificationsEnabled = useSettingsStore(
     state => state.personalization.communicationNotificationsEnabled ?? true
   );
+  const newsNotificationsEnabled = useSettingsStore(
+    state => state.personalization.newsNotificationsEnabled ?? true
+  );
 
-  const [subTab, setSubTab] = useState<MessagesSubTab>("discussions");
+  const initialTab: MessagesSubTab =
+    tab === "infos" || tab === "ai" || tab === "discussions" ? tab : "discussions";
+  const [subTab, setSubTab] = useState<MessagesSubTab>(initialTab);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [chats, setChats] = useState<Chat[]>([]);
   const [liveNews, setLiveNews] = useState<News[]>([]);
@@ -92,6 +99,12 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   const [readSet, setReadSet] = useState<Set<string>>(() => getReadChatSignatures());
   const dbNews = useNews(newsRefreshTick);
 
+  useEffect(() => {
+    if (tab === "infos" || tab === "ai" || tab === "discussions") {
+      setSubTab(tab);
+    }
+  }, [tab]);
+
   const fetchNewsItems = useCallback(async () => {
     setIsRefreshingNews(true);
     try {
@@ -100,6 +113,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
         const fetched = await manager.getNews();
         if (Array.isArray(fetched) && fetched.length > 0) {
           setLiveNews(fetched);
+          await detectAndNotifyNewNews(fetched, newsNotificationsEnabled);
         }
         setNewsRefreshTick(n => n + 1);
       }
@@ -108,7 +122,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
     } finally {
       setIsRefreshingNews(false);
     }
-  }, []);
+  }, [newsNotificationsEnabled]);
 
   const loadCached = useCallback(async () => {
     try {

@@ -13,7 +13,12 @@ import {
 } from "@/services/pronote/chat";
 import { classifyPronoteError } from "@/services/pronote/errors";
 import { fetchPronoteGradePeriods, fetchPronoteGrades } from "@/services/pronote/grades";
-import { fetchPronoteHomeworks, setPronoteHomeworkAsDone } from "@/services/pronote/homework";
+import {
+  fetchPronoteHomeworks,
+  removePronoteHomeworkFile,
+  setPronoteHomeworkAsDone,
+  uploadPronoteHomeworkFile,
+} from "@/services/pronote/homework";
 import { fetchPronoteNews, setPronoteNewsAsAcknowledged } from "@/services/pronote/news";
 import { refreshPronoteAccount } from "@/services/pronote/refresh";
 import { fetchPronoteCourseResources, fetchPronoteWeekTimetable } from "@/services/pronote/timetable";
@@ -173,6 +178,21 @@ export class Pronote implements SchoolServicePlugin {
 
   setHomeworkCompletion(homework: Homework, state?: boolean): Promise<Homework> {
     return this.withSession(session => setPronoteHomeworkAsDone(session, homework, state));
+  }
+
+  uploadHomeworkFile(
+    homework: Homework,
+    file: { uri: string; name: string; mimeType?: string; size?: number }
+  ): Promise<Homework> {
+    return this.withSession(session =>
+      uploadPronoteHomeworkFile(session, this.accountId, homework, file)
+    );
+  }
+
+  removeHomeworkFile(homework: Homework): Promise<Homework> {
+    return this.withSession(session =>
+      removePronoteHomeworkFile(session, this.accountId, homework)
+    );
   }
 
   createMail(subject: string, content: string, recipients: Recipient[]): Promise<Chat> {

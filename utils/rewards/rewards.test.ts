@@ -11,19 +11,73 @@ jest.mock("expo-crypto", () => ({
   }),
 }));
 
+jest.mock("react-native-mmkv", () => {
+  const stores = new Map<string, Map<string, string>>();
+  return {
+    createMMKV: ({ id }: { id: string }) => {
+      if (!stores.has(id)) stores.set(id, new Map<string, string>());
+      const m = stores.get(id)!;
+      return {
+        getString: (k: string) => m.get(k),
+        set: (k: string, v: string) => m.set(k, v),
+        remove: (k: string) => m.delete(k),
+      };
+    },
+  };
+});
+
+jest.mock("@/stores/account", () => ({
+  useAccountStore: {
+    getState: () => ({ accounts: [], lastUsedAccount: "" }),
+  },
+}));
+
+jest.mock("@/stores/settings", () => {
+  let state = {
+    personalization: {
+      rewardsUnlockedIds: ["badge_starter"],
+      rewardsEquippedBadge: "badge_starter",
+      rewardsPocketBaseBackupEnabled: false,
+      rewardsPocketBaseUrl: "https://pocketbase.felixx.dev",
+    },
+  };
+  return {
+    useSettingsStore: {
+      getState: () => ({
+        ...state,
+        mutateProperty: (_section: string, updates: Record<string, unknown>) => {
+          state = {
+            ...state,
+            personalization: { ...state.personalization, ...updates },
+          };
+        },
+      }),
+    },
+  };
+});
+
 import { computeUnlockedRewards } from "./rewardsCatalog";
 import {
-  awardPointEvent,
-  extractPronoteRewardsProfile,
-  makeFriendPairKey,
-  shouldShowRewardsOptInPopup,
-  updateUserProfile,
+  backupPointEventToPocketBase,
+  toPocketBaseEventType,
+  updateUserBackup,
 } from "./pocketbaseClient";
+import {
+  awardAudioHomeworkPoints,
+  awardFocusSprintPoints,
+  awardMicroStepPoints,
+  awardTaskKickoffPoints,
+  getAdhdRewardsState,
+  getCustomPersonalRewards,
+  getSpendablePoints,
+  redeemCustomPersonalReward,
+} from "./rewardsService";
 
 describe("rewardsCatalog", () => {
   it("unlocks cosmetic rewards matching points tier without duplicates", () => {
     const unlocked = computeUnlockedRewards(760, ["badge_starter"]);
     expect(unlocked).toContain("badge_starter");
+    expect(unlocked).toContain("badge_spark");
     expect(unlocked).toContain("badge_streak");
     expect(unlocked).toContain("theme_aurora");
     expect(unlocked).toContain("badge_scholar");
@@ -32,70 +86,41 @@ describe("rewardsCatalog", () => {
   });
 });
 
-describe("pocketbaseClient pure helpers & HTTP safety", () => {
+describe("ADHD work rewards loop", () => {
+  it("awards points for kickoff, micro-steps, focus sprint, audio upload, and redeems custom treats", async () => {
+    expect(await awardTaskKickoffPoints("hw-adhd-1")).toBe(true);
+    expect(await awardTaskKickoffPoints("hw-adhd-1")).toBe(false);
+    expect(await awardMicroStepPoints("hw-adhd-1", "step-1")).toBe(true);
+    expect((await awardFocusSprintPoints(15, "hw-adhd-1")).delta).toBe(25);
+    expect(await awardAudioHomeworkPoints("hw-adhd-1")).toBe(true);
+
+    const state = getAdhdRewardsState();
+    // 5 kickoff + 5 step + 25 sprint + 20 audio = 55 pts
+    expect(state.totalEarnedPoints).toBe(55);
+    expect(getSpendablePoints(state)).toBe(55);
+
+    const snack = getCustomPersonalRewards()[0];
+    const redeemed = redeemCustomPersonalReward(snack.id);
+    expect(redeemed.ok).toBe(true);
+    expect(getSpendablePoints(redeemed.state)).toBe(55 - snack.costPoints);
+    // Lifetime effort points stay intact for cosmetic unlocks!
+    expect(redeemed.state.totalEarnedPoints).toBe(55);
+  });
+});
+
+describe("pocketbaseClient private backup safety", () => {
   beforeEach(() => {
     jest.restoreAllMocks();
   });
 
-  it("creates order-independent sorted friend pair keys", () => {
-    expect(makeFriendPairKey("UserB12345", "usera98765")).toBe(
-      makeFriendPairKey("usera98765", "UserB12345")
-    );
+  it("maps ADHD events to PocketBase deployed enum safely", () => {
+    expect(toPocketBaseEventType("focus_sprint")).toBe("achievement");
+    expect(toPocketBaseEventType("micro_step")).toBe("achievement");
+    expect(toPocketBaseEventType("audio_homework")).toBe("homework_done");
+    expect(toPocketBaseEventType("comeback_bonus")).toBe("streak_bonus");
   });
 
-  it("triggers opt-in modal on join (open 1), app update, and every 50th open", () => {
-    expect(
-      shouldShowRewardsOptInPopup({
-        hasSignedInAccount: true,
-        rewardsOptIn: null,
-        rewardsAppOpenCount: 1,
-        currentAppVersion: "1.0.0",
-        rewardsLastPromptVersion: "1.0.0",
-      })
-    ).toBe(true);
-
-    expect(
-      shouldShowRewardsOptInPopup({
-        hasSignedInAccount: true,
-        rewardsOptIn: false,
-        rewardsAppOpenCount: 12,
-        currentAppVersion: "1.0.1",
-        rewardsLastPromptVersion: "1.0.0",
-      })
-    ).toBe(true);
-
-    expect(
-      shouldShowRewardsOptInPopup({
-        hasSignedInAccount: true,
-        rewardsOptIn: false,
-        rewardsAppOpenCount: 50,
-        currentAppVersion: "1.0.1",
-        rewardsLastPromptVersion: "1.0.1",
-      })
-    ).toBe(true);
-
-    expect(
-      shouldShowRewardsOptInPopup({
-        hasSignedInAccount: true,
-        rewardsOptIn: false,
-        rewardsAppOpenCount: 49,
-        currentAppVersion: "1.0.1",
-        rewardsLastPromptVersion: "1.0.1",
-      })
-    ).toBe(false);
-
-    expect(
-      shouldShowRewardsOptInPopup({
-        hasSignedInAccount: true,
-        rewardsOptIn: true,
-        rewardsAppOpenCount: 50,
-        currentAppVersion: "1.0.2",
-        rewardsLastPromptVersion: "1.0.1",
-      })
-    ).toBe(false);
-  });
-
-  it("never sends pronote_hash when patching pp_users profile", async () => {
+  it("never sends pronote_hash when patching pp_users backup", async () => {
     let capturedInit: RequestInit | undefined;
     const fetchMock = jest.fn(async (_url: unknown, init?: RequestInit) => {
       capturedInit = init;
@@ -105,18 +130,16 @@ describe("pocketbaseClient pure helpers & HTTP safety", () => {
         json: async () => ({
           id: "user12345678901",
           pseudo: "Tim",
-          friend_code: "TIM12345",
           points_total: 100,
           streak_days: 2,
-          unlocked_rewards: ["badge_starter", "badge_streak"],
-          opt_in_leaderboards: true,
+          unlocked_rewards: ["badge_starter", "badge_spark"],
         }),
       };
     });
     (globalThis as unknown as { fetch: typeof fetch }).fetch =
       fetchMock as unknown as typeof fetch;
 
-    await updateUserProfile("https://pocketbase.felixx.dev", "user12345678901", {
+    await updateUserBackup("https://pocketbase.felixx.dev", "user12345678901", {
       pseudo: "Tim",
       points_total: 100,
     });
@@ -135,52 +158,17 @@ describe("pocketbaseClient pure helpers & HTTP safety", () => {
     (globalThis as unknown as { fetch: typeof fetch }).fetch =
       fetchMock as unknown as typeof fetch;
 
-    const res = await awardPointEvent("https://pocketbase.felixx.dev", {
+    const res = await backupPointEventToPocketBase("https://pocketbase.felixx.dev", {
       userId: "user12345678901",
-      currentPoints: 30,
+      currentRemotePoints: 30,
       currentUnlocked: ["badge_starter"],
-      eventType: "homework_done",
-      eventKey: "hw:abc",
-      pointsDelta: 15,
+      kind: "focus_sprint",
+      eventKey: "sprint:1",
+      pointsDelta: 25,
     });
 
-    expect(res.awarded).toBe(false);
-    expect(res.newPointsTotal).toBe(30);
+    expect(res.backedUp).toBe(false);
+    expect(res.newRemotePoints).toBe(30);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("extracts formatted Pronote school name and city automatically", () => {
-    const profile = extractPronoteRewardsProfile({
-      id: "acc1",
-      firstName: "Timotée",
-      lastName: "Pralon",
-      schoolName: "LYCEE JEAN MONNET - ANNEMASSE",
-      services: [],
-    } as never);
-
-    expect(profile.pseudo).toBe("Timotée");
-    expect(profile.schoolName).toBe("Lycee Jean Monnet - Annemasse");
-    expect(profile.city).toBe("Annemasse");
-
-    const fromAddress = extractPronoteRewardsProfile({
-      id: "acc2",
-      firstName: "Léa",
-      lastName: "Martin",
-      schoolName: "Lycée Ampère",
-      transport: {
-        enabled: true,
-        defaultApp: "maps",
-        schoolAddress: {
-          firstTitle: "Lycée Ampère",
-          secondTitle: "Lyon",
-          address: "12 Rue de la Bourse, 69002 LYON",
-          longitude: 4.83,
-          latitude: 45.76,
-        },
-      },
-      services: [],
-    } as never);
-    expect(fromAddress.schoolName).toBe("Lycée Ampère");
-    expect(fromAddress.city).toBe("Lyon");
   });
 });

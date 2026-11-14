@@ -19,9 +19,7 @@ import { useAndroidWidgetsSync } from '@/utils/widgets/useAndroidWidgetsSync';
 import { useCalendarWidgetFeed } from '@/utils/widgets/useCalendarWidgetFeed';
 import { usePapillonKitSettingsSync } from '@/utils/widgets/usePapillonKitSettingsSync';
 import { useNotificationsSync } from '@/utils/notifications/useNotificationsSync';
-import { useSettingsStore } from '@/stores/settings';
 import { awardDailyCheckPoints } from '@/utils/rewards/rewardsService';
-import RewardsOptInModal from '@/components/rewards/RewardsOptInModal';
 import { LogBox, View } from 'react-native';
 
 // Polyfill Buffer
@@ -58,16 +56,13 @@ const NotificationsSyncBridge = React.memo(() => {
 NotificationsSyncBridge.displayName = "NotificationsSyncBridge";
 
 const RewardsLifecycleBridge = React.memo(() => {
-  const incrementedRef = useRef(false);
+  const triggeredRef = useRef(false);
   useEffect(() => {
-    if (incrementedRef.current) return;
-    incrementedRef.current = true;
-    const store = useSettingsStore.getState();
-    const nextCount = (store.personalization.rewardsAppOpenCount ?? 0) + 1;
-    store.mutateProperty("personalization", { rewardsAppOpenCount: nextCount });
+    if (triggeredRef.current) return;
+    triggeredRef.current = true;
     void awardDailyCheckPoints();
   }, []);
-  return <RewardsOptInModal />;
+  return null;
 });
 RewardsLifecycleBridge.displayName = "RewardsLifecycleBridge";
 

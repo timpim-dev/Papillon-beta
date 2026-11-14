@@ -7,7 +7,7 @@ import Stack from "@/ui/components/Stack";
 import TypographyLegacy, { VARIANTS } from "@/ui/components/Typography";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Linking, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Attachment, News as SkolengoNews } from "skolengojs";
 
 import HTMLView from "react-native-htmlview";
@@ -24,6 +24,7 @@ import { getInitials } from "@/utils/chats/initials";
 import { runsIOS26 } from "@/ui/utils/IsLiquidGlass";
 import { Papicons } from "@getpapillon/papicons";
 import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
+import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
 import List from "@/ui/new/List";
 import Typography from "@/ui/new/Typography";
 import { useFont } from "@/utils/theme/fonts";
@@ -205,14 +206,14 @@ const NewsPage = () => {
         {news.attachments.length > 0 && (
           <ListLegacy>
             {news.attachments.map((attachment, index) => (
-              <Item key={index} onPress={() => Linking.openURL(attachment.url)}>
+              <Item key={index} onPress={() => openAttachmentViewer(router, attachment)}>
                 <Leading>
                   <Icon size={28}>
                     <Papicons name={getAttachmentIcon(attachment)} />
                   </Icon>
                 </Leading>
                 <TypographyLegacy variant="title">
-                  {attachment.name}
+                  {attachment.name || "Pièce jointe"}
                 </TypographyLegacy>
                 <TypographyLegacy variant="body1" nowrap color="secondary">
                   {attachment.url}

@@ -16,7 +16,7 @@ import { GenericInterface } from "@/services/shared/types";
  *  @property {boolean} custom - Indicates whether the homework is custom or predefined.
  *  @property {string} createdByAccount - The local account ID of the user who created the homework, useful for the manager.
  */
-export interface Homework extends GenericInterface{
+export interface Homework extends GenericInterface {
   id: string;
   subject: string;
   content: string;
@@ -27,10 +27,24 @@ export interface Homework extends GenericInterface{
   evaluation: boolean;
   custom: boolean;
   progress?: number;
-	ref?: Assignment;
+  canUpload?: boolean;
+  uploadedAttachment?: Attachment;
+  maxUploadSizeBytes?: number;
+  pronoteAssignmentId?: string;
+  ref?: Assignment;
+}
+
+export interface HomeworkUploadFileInput {
+  uri: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
 }
 
 export enum ReturnFormat {
-  PAPER,
-  FILE_UPLOAD
+  PAPER = 0,
+  FILE_UPLOAD = 1,
+  AUDIO_RECORDING = 2,
+  KIOSK = 3,
+  NONE = 4,
 }

@@ -28,7 +28,6 @@ import {
   resolveWearConfig,
   useSettingsStore,
 } from "@/stores/settings";
-import { awardSharePoints } from "@/utils/rewards/rewardsService";
 import {
   WearComplicationMetric,
   WearConfig,
@@ -800,7 +799,6 @@ export default function SettingsWatchPage() {
               message: `Télécharge Papillon + : ${RELEASES_PAGE_URL}`,
               url: RELEASES_PAGE_URL,
             });
-            void awardSharePoints("link_share");
           }}
         >
           <List.Leading>

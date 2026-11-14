@@ -28,7 +28,9 @@ export default function SettingsFeatures() {
   const homeworkReminderHour = settingsStore.homeworkReminderHour ?? 18;
   const homeworkReminderMinute = settingsStore.homeworkReminderMinute ?? 30;
   const homeworkReminderDaysBefore = settingsStore.homeworkReminderDaysBefore ?? 1;
+  const homeworkDailyDigestEnabled = settingsStore.homeworkDailyDigestEnabled ?? true;
   const communicationNotificationsEnabled = settingsStore.communicationNotificationsEnabled ?? true;
+  const newsNotificationsEnabled = settingsStore.newsNotificationsEnabled ?? true;
   const selectedGradeScale = getGradeDisplayScale(settingsStore.gradesDisplayScale);
 
   const reminderTimeOptions = useMemo(
@@ -269,9 +271,9 @@ export default function SettingsFeatures() {
               <Papicons name={"Inbox"} />
             </Icon>
           </List.Leading>
-          <Typography variant="title">Nouvelles communications</Typography>
+          <Typography variant="title">Messages &amp; Discussions</Typography>
           <Typography color="textSecondary" numberOfLines={2}>
-            Alerte locale lorsqu&apos;une nouvelle discussion Pronote / scolaire arrive.
+            Alerte locale lors d&apos;une nouvelle discussion ou réponse Pronote.
           </Typography>
           <List.Trailing>
             <NativeSwitch
@@ -287,6 +289,55 @@ export default function SettingsFeatures() {
             />
           </List.Trailing>
         </List.Item>
+
+        <List.Item>
+          <List.Leading>
+            <Icon>
+              <Papicons name={"Newspaper"} />
+            </Icon>
+          </List.Leading>
+          <Typography variant="title">Infos &amp; Sondages</Typography>
+          <Typography color="textSecondary" numberOfLines={2}>
+            Alerte locale lorsqu&apos;une info ou un sondage Pronote est publié.
+          </Typography>
+          <List.Trailing>
+            <NativeSwitch
+              value={newsNotificationsEnabled}
+              onValueChange={async (value) => {
+                if (value) {
+                  await requestNotificationPermission();
+                }
+                mutateProperty("personalization", {
+                  newsNotificationsEnabled: value,
+                });
+              }}
+            />
+          </List.Trailing>
+        </List.Item>
+
+        {homeworkRemindersEnabled && (
+          <List.Item>
+            <List.Leading>
+              <Icon>
+                <Papicons name={"Clock"} />
+              </Icon>
+            </List.Leading>
+            <Typography variant="title">Résumé devoirs non faits</Typography>
+            <Typography color="textSecondary" numberOfLines={2}>
+              Une alerte récapitulative quotidienne s&apos;il reste des devoirs à faire.
+            </Typography>
+            <List.Trailing>
+              <NativeSwitch
+                value={homeworkDailyDigestEnabled}
+                onValueChange={value => {
+                  mutateProperty("personalization", {
+                    homeworkDailyDigestEnabled: value,
+                  });
+                }}
+              />
+            </List.Trailing>
+          </List.Item>
+        )}
       </List.Section>
 
       <List.Section>

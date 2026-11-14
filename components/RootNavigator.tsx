@@ -185,6 +185,14 @@ function RootNavigatorContent() {
         />
 
         <Stack.Screen
+          name="(modals)/attachment"
+          options={{
+            headerShown: false,
+            presentation: "modal",
+          }}
+        />
+
+        <Stack.Screen
           name="(modals)/team"
           options={{
             headerShown: false,
