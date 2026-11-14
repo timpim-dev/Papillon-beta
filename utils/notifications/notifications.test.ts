@@ -59,7 +59,16 @@ import { Homework } from "@/services/shared/homework";
 import { Chat } from "@/services/shared/chat";
 import { News } from "@/services/shared/news";
 
-import { diffNewChats, diffNewNews } from "./communicationsNotifications";
+import {
+  buildChatActivitySignature,
+  buildChatSignature,
+  detectAndNotifyNewChats,
+  diffNewChats,
+  diffNewNews,
+  getReadChatSignatures,
+  isChatUnread,
+  markChatAsRead,
+} from "./communicationsNotifications";
 import {
   computeDailyUndoneDigest,
   computeDesiredHomeworkReminders,
@@ -184,6 +193,31 @@ describe("communicationsNotifications", () => {
       reply.nextKnownSignatures
     );
     expect(second.newChats.map(c => c.id)).toEqual(["c2"]);
+  });
+
+  it("keeps read chats read when Pronote relative dates shift across launches and never re-notifies when unread is 0", async () => {
+    const initial = makeChat("c-drift", new Date(2026, 10, 14, 15, 0, 0).getTime(), 2, 1);
+    await detectAndNotifyNewChats([initial], false);
+
+    markChatAsRead(initial);
+    expect(isChatUnread(initial, getReadChatSignatures())).toBe(false);
+
+    // Same discussion reopened next day where Pawnote shifts parsed timestamp
+    const shiftedDateChat = makeChat("c-drift", new Date(2026, 10, 15, 15, 0, 0).getTime(), 2, 0);
+    expect(buildChatSignature(shiftedDateChat)).toBe(buildChatSignature(initial));
+    expect(buildChatActivitySignature(shiftedDateChat)).toBe(buildChatActivitySignature(initial));
+
+    const notified = await detectAndNotifyNewChats([shiftedDateChat], false);
+    expect(notified).toBe(0);
+    expect(isChatUnread(shiftedDateChat, getReadChatSignatures())).toBe(false);
+
+    // Even if activity signature wasn't previously known (e.g. migration), unread=0 stays read
+    const serverReadChat = makeChat("c-server-read", new Date(2026, 10, 15, 16, 0, 0).getTime(), 3, 0);
+    const diff = diffNewChats([serverReadChat], []);
+    expect(diff.newChats).toEqual([]);
+    const notifiedServerRead = await detectAndNotifyNewChats([serverReadChat], false);
+    expect(notifiedServerRead).toBe(0);
+    expect(isChatUnread(serverReadChat, getReadChatSignatures())).toBe(false);
   });
 
   it("detects new unacknowledged infos and surveys after initial baseline seed", () => {

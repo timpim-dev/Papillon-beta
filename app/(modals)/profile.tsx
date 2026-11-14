@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import OnboardingInput from "@/components/onboarding/OnboardingInput";
 import { useAccountStore } from "@/stores/account";
-import { useSettingsStore } from "@/stores/settings";
 import Avatar from "@/ui/components/Avatar";
 import Button from "@/ui/components/Button";
 import Icon from "@/ui/components/Icon";
@@ -24,33 +23,14 @@ import { NativeHeaderPressable, NativeHeaderSide } from "@/ui/components/NativeH
 import Typography from "@/ui/components/Typography";
 import { getInitials } from "@/utils/chats/initials";
 import ActionMenu, { type NativeActionEvent } from "@/ui/components/ActionMenu";
-import { formatSchoolName } from "@/utils/format/formatSchoolName";
-import { getRewardById } from "@/utils/rewards/rewardsCatalog";
-import {
-  AdhdRewardsLocalState,
-  getAdhdRewardsState,
-  getSpendablePoints,
-  syncRewardsWithPocketBaseBackup,
-} from "@/utils/rewards/rewardsService";
 
 export default function CustomProfileScreen() {
   const { t } = useTranslation();
   const store = useAccountStore.getState();
   const accounts = useAccountStore((state) => state.accounts);
   const lastUsedAccount = useAccountStore((state) => state.lastUsedAccount);
-  const personalization = useSettingsStore((state) => state.personalization);
 
   const account = accounts.find((a) => a.id === lastUsedAccount);
-  const [rewardsState, setRewardsState] = useState<AdhdRewardsLocalState>(() => getAdhdRewardsState());
-
-  useFocusEffect(
-    useCallback(() => {
-      setRewardsState(getAdhdRewardsState());
-      void syncRewardsWithPocketBaseBackup().then(synced => {
-        setRewardsState(synced);
-      });
-    }, [])
-  );
 
   const [firstName, setFirstName] = useState<string>(account?.firstName ?? "");
   const [lastName, setLastName] = useState<string>(account?.lastName ?? "");
@@ -192,63 +172,6 @@ export default function CustomProfileScreen() {
               icon={"Bold"}
               inputProps={{}}
             />
-          </View>
-
-          <View
-            style={{
-              marginTop: 10,
-              backgroundColor: colors.card,
-              borderRadius: 20,
-              padding: 16,
-              borderWidth: 1,
-              borderColor: colors.border,
-              gap: 10,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-                <Papicons name="Crown" size={24} color="#F59E0B" />
-                <View style={{ flex: 1 }}>
-                  <Typography variant="title">Focus & Récompenses TDAH</Typography>
-                  <Typography variant="caption" color="secondary" numberOfLines={1}>
-                    {formatSchoolName(account?.schoolName ?? "") || "Sauvegarde PocketBase privée"}
-                  </Typography>
-                </View>
-              </View>
-              <Typography variant="title" style={{ color: String(colors.primary) }}>
-                {getSpendablePoints(rewardsState)} pts
-              </Typography>
-            </View>
-
-            <Typography variant="body2" color="secondary">
-              {`Focus aujourd'hui : ${rewardsState.focusMinutesToday} min • Total effort : ${rewardsState.totalEarnedPoints} pts • Badge : ${
-                getRewardById(personalization.rewardsEquippedBadge)?.title ?? "Premier Pas"
-              }`}
-            </Typography>
-
-            <TouchableOpacity
-              onPress={() => {
-                router.back();
-                setTimeout(() => {
-                  router.push("/(features)/(rewards)/rewards");
-                }, 120);
-              }}
-              style={{
-                backgroundColor: colors.primary,
-                borderRadius: 14,
-                paddingVertical: 12,
-                paddingHorizontal: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
-            >
-              <Papicons name="Crown" size={18} color="#FFFFFF" />
-              <Typography variant="body1" style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                Lancer une session Focus & Récompenses
-              </Typography>
-            </TouchableOpacity>
           </View>
         </View>
         <NativeHeaderSide side="Left">

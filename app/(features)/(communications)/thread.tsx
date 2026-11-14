@@ -26,7 +26,7 @@ import { getInitials } from "@/utils/chats/initials";
 import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
 import { formatHTML } from "@/utils/format/html";
 import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
-import { buildChatSignature } from "@/utils/notifications/communicationsNotifications";
+import { buildChatSignature, markChatAsRead } from "@/utils/notifications/communicationsNotifications";
 
 export default function CommunicationThreadScreen() {
   const { sig } = useLocalSearchParams<{ sig: string }>();
@@ -66,7 +66,7 @@ export default function CommunicationThreadScreen() {
             allChats.find(
               c =>
                 c.subject === activeChat.subject &&
-                new Date(c.date).getTime() === new Date(activeChat.date).getTime()
+                c.creator === activeChat.creator
             );
           if (matched) {
             targetChat = matched;
@@ -75,6 +75,10 @@ export default function CommunicationThreadScreen() {
         }
         const fetched = await manager.getChatMessages(targetChat);
         setMessages([...fetched].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        markChatAsRead(targetChat);
+        if (targetChat !== activeChat) {
+          markChatAsRead(activeChat);
+        }
       }
     } catch {
       try {

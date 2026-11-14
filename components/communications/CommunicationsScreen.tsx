@@ -28,6 +28,7 @@ import {
   detectAndNotifyNewChats,
   detectAndNotifyNewNews,
   getReadChatSignatures,
+  isChatUnread,
   markAllChatsAsRead,
   markChatAsRead,
 } from "@/utils/notifications/communicationsNotifications";
@@ -148,6 +149,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
       cacheLiveChats(list);
       setChats(list);
       await detectAndNotifyNewChats(list, notificationsEnabled);
+      setReadSet(getReadChatSignatures());
     } catch (err) {
       warn(`Failed fetching chats: ${String(err)}`, "CommunicationsScreen");
       await loadCached();
@@ -195,7 +197,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   }, [searchText, sortedChats]);
 
   const unreadCount = useMemo(() => {
-    return sortedChats.filter(c => !readSet.has(buildChatSignature(c))).length;
+    return sortedChats.filter(c => isChatUnread(c, readSet)).length;
   }, [readSet, sortedChats]);
 
   const mergedNews = useMemo(() => {
@@ -500,7 +502,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
             <List.Section>
               {filteredChats.map(chat => {
                 const sig = buildChatSignature(chat);
-                const isUnread = !readSet.has(sig);
+                const isUnread = isChatUnread(chat, readSet);
                 const authorName = chat.creator || chat.recipient || "Discussion";
                 return (
                   <TouchableOpacity

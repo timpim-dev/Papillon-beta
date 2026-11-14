@@ -169,8 +169,6 @@ const defaultPersonalization: Personalization = {
   aiCookiesAccepted: false,
   aiProvider: "gemini",
   aiModel: "gemini-2.5-flash",
-  rewardsPocketBaseBackupEnabled: true,
-  rewardsPocketBaseUrl: "https://pocketbase.felixx.dev",
 };
 
 export const useSettingsStore = create<SettingsStorage>()(

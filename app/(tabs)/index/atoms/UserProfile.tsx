@@ -84,11 +84,6 @@ const UserProfile = ({ subtitle, onPress, loading }: { subtitle?: string, onPres
         <UserProfileItemContainer>
           <ActionMenu
             onPressAction={async ({ nativeEvent }) => {
-              if (nativeEvent.event === "rewards") {
-                router.push("/(features)/(rewards)/rewards");
-                return;
-              }
-
               if (nativeEvent.event === "edit") {
                 router.push('/(modals)/profile');
                 return;
@@ -130,12 +125,6 @@ const UserProfile = ({ subtitle, onPress, loading }: { subtitle?: string, onPres
                 displayInline: true,
                 subactions: AccountsMenuItems,
               }] : AccountsMenuItems),
-              {
-                id: 'rewards',
-                title: 'Focus & Récompenses',
-                image: 'sparkles',
-                papicon: 'crown',
-              },
               {
                 id: 'edit',
                 title: t('Home_Edit_Profile'),

@@ -12,7 +12,6 @@ import { generateId } from "@/utils/generateId";
 import { error } from '@/utils/logger/logger';
 import { trackAdvancedEvent } from '@/utils/logger/analytics';
 import { cancelHomeworkReminder } from '@/utils/notifications/homeworkReminders';
-import { awardHomeworkPoints } from '@/utils/rewards/rewardsService';
 import { notificationAsync, NotificationFeedbackType } from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 
@@ -237,7 +236,6 @@ export const useHomeworkData = (weeks: number[], alert: any) => {
         if (done) {
           notificationAsync(NotificationFeedbackType.Success);
           void cancelHomeworkReminder(id);
-          void awardHomeworkPoints(id, item.dueDate);
         }
         trackAdvancedEvent(done ? "task_ticked" : "task_unticked");
       }

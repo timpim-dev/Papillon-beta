@@ -230,15 +230,6 @@ export default function SettingsIndex() {
         router.navigate("/(settings)/ai")
       }
     },
-    {
-      icon: <Papicons name={"Crown"} />,
-      title: "Focus & Récompenses",
-      description: "Points d'effort TDAH, minuteur & récompenses",
-      color: "#F59E0B",
-      onPress: () => {
-        router.navigate("/(features)/(rewards)/rewards")
-      }
-    },
     ...(MAGIC_AVAILABLE ? [{
       icon: <Papicons name={"Sparkles"} />,
       title: "Magic+",

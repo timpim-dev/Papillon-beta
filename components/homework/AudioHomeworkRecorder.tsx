@@ -32,7 +32,6 @@ import {
   getHomeworkUploadMeta,
   saveHomeworkUploadMeta,
 } from "@/utils/homework/uploadMeta";
-import { awardAudioHomeworkPoints, awardTaskKickoffPoints } from "@/utils/rewards/rewardsService";
 
 interface AudioHomeworkRecorderProps {
   homework: Homework;
@@ -115,7 +114,6 @@ export function AudioHomeworkRecorder({
       recorder.record();
       setRecordedUri(null);
       setSelectedFile(null);
-      awardTaskKickoffPoints(homework.id).catch(() => {});
     } catch (err) {
       setStatusMessage(
         err instanceof Error
@@ -167,7 +165,6 @@ export function AudioHomeworkRecorder({
         mimeType: file.type || "application/octet-stream",
         size: typeof file.size === "number" ? file.size : undefined,
       });
-      awardTaskKickoffPoints(homework.id).catch(() => {});
     } catch (err) {
       setStatusMessage(
         err instanceof Error ? err.message : "Impossible de sélectionner ce fichier."
@@ -226,8 +223,7 @@ export function AudioHomeworkRecorder({
         maxUploadSizeBytes: maxBytes,
         pronoteAssignmentId: updated.pronoteAssignmentId,
       });
-      await awardAudioHomeworkPoints(homework.id);
-      setStatusMessage("Rendu envoyé sur Pronote (+20 pts) !");
+      setStatusMessage("Rendu envoyé sur Pronote !");
       onUpdated?.(updated);
     } catch (err) {
       setStatusMessage(
@@ -302,8 +298,8 @@ export function AudioHomeworkRecorder({
           </Text>
           <Text style={[styles.subtitle, { color: `${textColor}88` }]}>
             {isAudioMode
-              ? "Enregistre ta voix directement dans Papillon et envoie-la (+20 pts)"
-              : "Sélectionne un fichier ou enregistre un audio à remettre (+20 pts)"}
+              ? "Enregistre ta voix directement dans Papillon et envoie-la"
+              : "Sélectionne un fichier ou enregistre un audio à remettre"}
             {maxBytes ? ` · Max ${Math.max(1, Math.round(maxBytes / (1024 * 1024)))} Mo` : ""}
           </Text>
         </View>

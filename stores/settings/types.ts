@@ -122,10 +122,4 @@ export interface Personalization {
   aiProvider?: "gemini" | "groq" | "mistral" | "custom";
   aiModel?: string;
   aiCustomEndpoint?: string;
-  // ADHD work-focus points & PocketBase private backup
-  rewardsEquippedBadge?: string | null;
-  rewardsUnlockedIds?: string[];
-  rewardsCustomThemeId?: string | null;
-  rewardsPocketBaseBackupEnabled?: boolean;
-  rewardsPocketBaseUrl?: string;
 }

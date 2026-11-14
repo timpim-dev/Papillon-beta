@@ -9,11 +9,20 @@ import { mapChatsToShared, mapMessagesToShared, mapRecipientsToShared } from "./
 import { Chat, Message, Recipient } from "./models/Chat";
 import { safeWrite } from "./utils/safeTransaction";
 
+function getChatDbId(chat: SharedChat): string {
+  const refObj = (chat.ref ?? {}) as { participantsMessageID?: string };
+  return (
+    refObj.participantsMessageID ||
+    chat.id ||
+    generateId(chat.createdByAccount + chat.subject + (chat.creator ?? ""))
+  );
+}
+
 export async function addChatsToDatabase(chats: SharedChat[]) {
   const db = getDatabaseInstance();
   for (const item of chats) {
-    const id = generateId(item.createdByAccount + item.subject + item.date)
-    const existing = await db.get('chats').query(Q.where('chatId', id)).fetch();
+    const id = getChatDbId(item);
+    const existing = await db.get<Chat>('chats').query(Q.where('chatId', id)).fetch();
 
     if (existing.length === 0) {
       await safeWrite(db, async () => {
@@ -29,13 +38,23 @@ export async function addChatsToDatabase(chats: SharedChat[]) {
           })
         })
       }, 10000, 'addChatsToDatabase')
+    } else {
+      const nextDateMs = item.date.getTime();
+      const record = existing[0];
+      if (Number.isFinite(nextDateMs) && record.date !== nextDateMs) {
+        await safeWrite(db, async () => {
+          await record.update((r: Chat) => {
+            r.date = nextDateMs;
+          });
+        }, 10000, 'updateChatDateInDatabase');
+      }
     }
   }
 }
 
 export async function addRecipientsToDatabase(chat: SharedChat, recipients: SharedRecipient[]) {
   const db = getDatabaseInstance();
-  const chatId = generateId(chat.createdByAccount + chat.subject + chat.date)
+  const chatId = getChatDbId(chat);
   const existingChats = await db.get<Chat>('chats').query(Q.where('chatId', chatId)).fetch();
   if (existingChats.length === 0) {
     await addChatsToDatabase([chat]);
@@ -65,7 +84,7 @@ export async function addRecipientsToDatabase(chat: SharedChat, recipients: Shar
 
 export async function addMessagesToDatabase(chat: SharedChat, messages: SharedMessage[]) {
   const db = getDatabaseInstance();
-  const chatId = generateId(chat.createdByAccount + chat.subject + chat.date)
+  const chatId = getChatDbId(chat);
   const existingChats = await db.get<Chat>('chats').query(Q.where('chatId', chatId)).fetch();
   if (existingChats.length === 0) {
     await addChatsToDatabase([chat]);
@@ -110,7 +129,7 @@ export async function getChatsFromCache(): Promise<SharedChat[]> {
 export async function getRecipientsFromCache(chat: SharedChat): Promise<SharedRecipient[]> {
   try {
     const database = getDatabaseInstance();
-    const chatId = generateId(chat.createdByAccount + chat.subject + chat.date);
+    const chatId = getChatDbId(chat);
     const recipients = await database.get<Recipient>('recipients').query(
       Q.where('chatId', chatId)
     ).fetch();
@@ -124,7 +143,7 @@ export async function getRecipientsFromCache(chat: SharedChat): Promise<SharedRe
 export async function getMessagesFromCache(chat: SharedChat): Promise<SharedMessage[]> {
   try {
     const database = getDatabaseInstance();
-    const chatId = generateId(chat.createdByAccount + chat.subject + chat.date);
+    const chatId = getChatDbId(chat);
     const messages = await database.get<Message>('messages').query(
       Q.where('chatId', chatId)
     ).fetch();

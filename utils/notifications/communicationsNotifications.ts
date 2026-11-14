@@ -19,30 +19,51 @@ const KNOWN_CHAT_ACTIVITY_KEY = "known_chat_activity_signatures";
 const KNOWN_NEWS_SIGNATURES_KEY = "known_news_signatures";
 const READ_SIGNATURES_KEY = "read_chat_signatures";
 
+function getStableChatKey(
+  chat: Pick<Chat, "id" | "subject" | "creator" | "createdByAccount"> & {
+    ref?: unknown;
+  }
+): string {
+  const refObj = (chat.ref ?? {}) as { participantsMessageID?: string };
+  return refObj.participantsMessageID || chat.id || `${chat.subject}:${chat.creator ?? ""}`;
+}
+
 /**
  * Stable per-thread signature used for read state & route navigation.
+ * Intentionally excludes `date` because Pronote relative date parsing shifts across launches.
  */
 export function buildChatSignature(
-  chat: Pick<Chat, "id" | "subject" | "date" | "createdByAccount">
+  chat: Pick<Chat, "id" | "subject" | "creator" | "createdByAccount"> & {
+    date?: Date | string | number;
+    ref?: unknown;
+  }
 ): string {
-  const dateMs = chat.date instanceof Date ? chat.date.getTime() : new Date(chat.date).getTime();
-  return `${chat.createdByAccount}:${chat.id || chat.subject}:${Number.isFinite(dateMs) ? dateMs : 0}`;
+  return `${chat.createdByAccount}:${getStableChatKey(chat)}`;
 }
 
 /**
  * Activity-sensitive thread signature: changes whenever a discussion receives
- * a new reply (`numberOfMessages`, `numberOfMessagesUnread`, or `date`).
+ * a new reply (`numberOfMessages`, or fallback `date` if message count is absent).
  */
 export function buildChatActivitySignature(chat: Chat): string {
   const refObj = (chat.ref ?? {}) as {
     numberOfMessages?: number;
     participantsMessageID?: string;
   };
+  const threadKey = getStableChatKey(chat);
+  if (typeof refObj.numberOfMessages === "number") {
+    return `${chat.createdByAccount}:${threadKey}:n${refObj.numberOfMessages}`;
+  }
   const dateMs = chat.date instanceof Date ? chat.date.getTime() : new Date(chat.date).getTime();
-  const threadKey = refObj.participantsMessageID || chat.id || chat.subject;
-  const countPart =
-    typeof refObj.numberOfMessages === "number" ? `:n${refObj.numberOfMessages}` : "";
-  return `${chat.createdByAccount}:${threadKey}:${Number.isFinite(dateMs) ? dateMs : 0}${countPart}`;
+  return `${chat.createdByAccount}:${threadKey}:${Number.isFinite(dateMs) ? dateMs : 0}`;
+}
+
+export function isChatUnread(chat: Chat, readSet: Set<string>): boolean {
+  const refObj = (chat.ref ?? {}) as { numberOfMessagesUnread?: number };
+  if (typeof refObj.numberOfMessagesUnread === "number" && refObj.numberOfMessagesUnread === 0) {
+    return false;
+  }
+  return !readSet.has(buildChatSignature(chat));
 }
 
 export function buildNewsSignature(
@@ -76,7 +97,13 @@ export function diffNewChats(
   }
 
   const knownSet = new Set(knownSignatures);
-  const newChats = chats.filter(chat => !knownSet.has(buildChatActivitySignature(chat)));
+  const newChats = chats.filter(chat => {
+    const refObj = (chat.ref ?? {}) as { numberOfMessagesUnread?: number };
+    if (typeof refObj.numberOfMessagesUnread === "number" && refObj.numberOfMessagesUnread === 0) {
+      return false;
+    }
+    return !knownSet.has(buildChatActivitySignature(chat));
+  });
   const merged = Array.from(new Set([...knownSignatures, ...currentSignatures])).slice(-300);
 
   return {
@@ -145,6 +172,14 @@ export function markChatAsRead(chat: Chat): void {
   if (!existing.includes(sig)) {
     writeStoredList(READ_SIGNATURES_KEY, [...existing, sig].slice(-250));
   }
+  const activitySig = buildChatActivitySignature(chat);
+  const knownActivity = readStoredList(KNOWN_CHAT_ACTIVITY_KEY);
+  if (knownActivity !== null && !knownActivity.includes(activitySig)) {
+    writeStoredList(KNOWN_CHAT_ACTIVITY_KEY, [...knownActivity, activitySig].slice(-300));
+  }
+  if (chat.ref && typeof chat.ref === "object") {
+    (chat.ref as { numberOfMessagesUnread?: number }).numberOfMessagesUnread = 0;
+  }
 }
 
 function markChatsUnread(chats: Chat[]): void {
@@ -158,6 +193,7 @@ function markChatsUnread(chats: Chat[]): void {
 }
 
 export function markAllChatsAsRead(chats: Chat[]): void {
+  if (chats.length === 0) return;
   const existing = new Set(readStoredList(READ_SIGNATURES_KEY) ?? []);
   for (const chat of chats) {
     existing.add(buildChatSignature(chat));
@@ -176,6 +212,14 @@ export async function detectAndNotifyNewChats(
   if (known === null) {
     markAllChatsAsRead(chats);
     return 0;
+  }
+
+  const serverReadChats = chats.filter(chat => {
+    const refObj = (chat.ref ?? {}) as { numberOfMessagesUnread?: number };
+    return typeof refObj.numberOfMessagesUnread === "number" && refObj.numberOfMessagesUnread === 0;
+  });
+  if (serverReadChats.length > 0) {
+    markAllChatsAsRead(serverReadChats);
   }
 
   if (newChats.length > 0) {

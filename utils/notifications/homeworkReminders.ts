@@ -118,7 +118,7 @@ export function computeDesiredHomeworkReminders(
 
 /**
  * Computes a single daily summary nudge when upcoming undone tasks remain in
- * the next 48 hours so ADHD students get one clear overview without notification fatigue.
+ * the next 48 hours so students get one clear overview without notification fatigue.
  */
 export function computeDailyUndoneDigest(
   homeworks: Homework[],
