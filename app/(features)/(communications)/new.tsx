@@ -15,6 +15,7 @@ import { getManager } from "@/services/shared";
 import { Recipient } from "@/services/shared/chat";
 import { useAccountStore } from "@/stores/account";
 import Avatar from "@/ui/components/Avatar";
+import KeyboardAvoidingContainer, { useKeyboardVisible } from "@/ui/components/KeyboardAvoidingContainer";
 import Typography from "@/ui/new/Typography";
 import { getProfileColorByName } from "@/utils/chats/colors";
 import { getInitials } from "@/utils/chats/initials";
@@ -23,6 +24,7 @@ export default function NewCommunicationScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const keyboardVisible = useKeyboardVisible();
 
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -95,7 +97,10 @@ export default function NewCommunicationScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingBottom: insets.bottom + 12 }}>
+    <KeyboardAvoidingContainer
+      iosKeyboardVerticalOffset={90}
+      style={{ flex: 1, backgroundColor: colors.background, paddingBottom: keyboardVisible ? 8 : insets.bottom + 12 }}
+    >
       <ExpoStack.Screen
         options={{
           headerShown: true,
@@ -161,6 +166,7 @@ export default function NewCommunicationScreen() {
         <FlatList
           data={filteredRecipients}
           keyExtractor={(item, idx) => `${item.id}-${idx}`}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 20 }}
           renderItem={({ item }) => {
             const selected = selectedIds.includes(item.id);
@@ -215,6 +221,6 @@ export default function NewCommunicationScreen() {
           </Typography>
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingContainer>
   );
 }

@@ -139,11 +139,16 @@ const Stack: React.FC<StackProps> = ({
       dynamicStyle.borderCurve = "continuous";
     }
 
-    // Handle inline with React Native compatible values
+    // Handle inline with React Native compatible values (avoid flex: 0 setting flexBasis: 0)
     if (inline) {
       dynamicStyle.alignSelf = "center";
       dynamicStyle.width = width !== undefined ? width : "auto";
-      dynamicStyle.flex = flex ? 1 : 0;
+      if (flex) {
+        dynamicStyle.flex = 1;
+      } else {
+        dynamicStyle.flexGrow = 0;
+        dynamicStyle.flexShrink = 0;
+      }
     }
 
     if (card) {

@@ -113,7 +113,7 @@ jobs:
 
   build-ios:
     if: github.repository == 'timpim-dev/Papillon-beta'
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 60
 
     steps:
@@ -128,8 +128,11 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Ensure CocoaPods is available
-        run: command -v pod >/dev/null || brew install cocoapods
+      - name: Verify Xcode and CocoaPods
+        run: |
+          ls -la /Applications/Xcode* || true
+          xcodebuild -version
+          command -v pod >/dev/null || brew install cocoapods
 
       - name: Install dependencies
         run: bun install
@@ -166,12 +169,19 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_USER_SCRIPT_SANDBOXING=NO \
             build
 
       - name: Package Unsigned IPA
         run: |
+          APP_PATH=$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Built .app bundle not found!"
+            ls -la ios/build/Build/Products/Release-iphoneos/ || true
+            exit 1
+          fi
           mkdir -p release-ipa Payload
-          cp -R ios/build/Build/Products/Release-iphoneos/Papillon.app Payload/Papillon.app
+          cp -R "$APP_PATH" "Payload/$(basename "$APP_PATH")"
           zip -qry release-ipa/papillon-plus-ios-unsigned.ipa Payload
 
       - name: Upload Unsigned IPA

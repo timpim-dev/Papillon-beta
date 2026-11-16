@@ -36,6 +36,7 @@ import {
 } from "@/utils/notifications/communicationsNotifications";
 
 import { cacheLiveChats } from "./liveChatsCache";
+import { cacheLiveNews } from "./liveNewsCache";
 
 type MessagesSubTab = "discussions" | "infos" | "ai";
 
@@ -142,6 +143,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
       if (manager) {
         const fetched = await manager.getNews();
         if (Array.isArray(fetched) && fetched.length > 0) {
+          cacheLiveNews(fetched);
           setLiveNews(fetched);
           await detectAndNotifyNewNews(fetched, newsNotificationsEnabled);
         }
@@ -240,7 +242,17 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   }, [readSet, sortedChats]);
 
   const mergedNews = useMemo(() => {
-    return dbNews.length > 0 ? dbNews : liveNews;
+    if (liveNews.length === 0) return dbNews;
+    if (dbNews.length === 0) return liveNews;
+    const byKey = new Map<string, News>();
+    for (const item of dbNews) {
+      byKey.set(getNewsRouteId(item), item);
+    }
+    for (const item of liveNews) {
+      // Live items carry the latest HTML content AND interactive survey `ref`.
+      byKey.set(getNewsRouteId(item), item);
+    }
+    return Array.from(byKey.values());
   }, [dbNews, liveNews]);
 
   const sortedNews = useMemo(() => {
@@ -273,7 +285,8 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   };
 
   const handleOpenNews = (item: News) => {
-    const targetId = dbNews.length > 0 ? item.id : getNewsRouteId(item);
+    cacheLiveNews([item]);
+    const targetId = getNewsRouteId(item) || item.id;
     router.push({
       pathname: "/(features)/(news)/specific",
       params: { id: targetId },

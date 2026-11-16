@@ -13,7 +13,7 @@ import {
 import { News } from "@/services/shared/news";
 import { error } from "@/utils/logger/logger";
 
-function readRawTextField(value: unknown): string {
+export function readRawTextField(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }
@@ -69,14 +69,27 @@ export async function fetchPronoteNews(session: SessionHandle, accountId: string
     if (isSurvey) {
       const survey = item as NewsSurvey;
       const questions = survey.questions ?? [];
-      content = formatSurveyQuestionsHtml(questions);
+      content =
+        formatSurveyQuestionsHtml(questions) ||
+        readRawTextField((survey as unknown as { content?: unknown }).content) ||
+        (item.title ?? "");
       rawAttachments = questions.flatMap(q => q.attachments ?? []);
     } else {
       const infoItem = item as NewsInformation;
+      const rawQuestions = (infoItem as unknown as { questions?: NewsQuestion[] }).questions;
+      const infoQuestions = Array.isArray(rawQuestions) && rawQuestions.length > 0
+        ? rawQuestions
+        : infoItem.question
+          ? [infoItem.question]
+          : [];
       content =
         readRawTextField(infoItem.content) ||
-        readRawTextField(infoItem.question?.content) ||
-        (infoItem.question?.fullTitle ?? "");
+        infoQuestions.map(q => readRawTextField(q.content)).filter(Boolean).join("<br/><br/>") ||
+        (infoQuestions.some(q => (q.choices?.length ?? 0) > 0)
+          ? formatSurveyQuestionsHtml(infoQuestions)
+          : "") ||
+        readRawTextField(infoItem.question?.fullTitle) ||
+        readRawTextField(infoItem.question?.title);
       rawAttachments = infoItem.attachments ?? infoItem.question?.attachments ?? [];
     }
 

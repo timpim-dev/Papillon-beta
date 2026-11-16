@@ -8,6 +8,7 @@ import SettingsHeader from "@/components/SettingsHeader";
 import { useSettingsStore } from "@/stores/settings";
 import Icon from "@/ui/components/Icon";
 import Item, { Leading, Trailing } from "@/ui/components/Item";
+import KeyboardAvoidingContainer from "@/ui/components/KeyboardAvoidingContainer";
 import List from "@/ui/components/List";
 import Typography from "@/ui/components/Typography";
 import {
@@ -64,11 +65,16 @@ export default function AiSettingsScreen() {
   };
 
   return (
-    <ScrollView
+    <KeyboardAvoidingContainer
+      iosKeyboardVerticalOffset={90}
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 48 }}
     >
+      <ScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 48 }}
+      >
       <SettingsHeader
         color="#7C3AED"
         title="Assistant IA d'étude"
@@ -266,10 +272,11 @@ export default function AiSettingsScreen() {
           backgroundColor: "#DC262610",
         }}
       >
-        <Typography variant="title" style={{ color: "#DC2626" }}>
-          Effacer l'historique des discussions
-        </Typography>
-      </TouchableOpacity>
-    </ScrollView>
+          <Typography variant="title" style={{ color: "#DC2626" }}>
+            Effacer l'historique des discussions
+          </Typography>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingContainer>
   );
 }

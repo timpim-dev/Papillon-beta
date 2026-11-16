@@ -6,7 +6,6 @@ import { useTheme } from "expo-router/react-navigation";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Text,
@@ -23,6 +22,7 @@ import { CustomisableSubject } from "@/stores/account/types";
 import ActionMenu from "@/ui/components/ActionMenu";
 import { useAlert } from "@/ui/components/AlertProvider";
 import AnimatedPressable from "@/ui/components/AnimatedPressable";
+import KeyboardAvoidingContainer from "@/ui/components/KeyboardAvoidingContainer";
 import Stack from "@/ui/components/Stack";
 import Task, { formatDistanceDay } from "@/ui/components/Task";
 import Typography from "@/ui/components/Typography";
@@ -368,12 +368,13 @@ const NewTaskModal = () => {
       />
 
       {/* Content */}
-      <KeyboardAvoidingView
+      <KeyboardAvoidingContainer
         style={{ flex: 1 }}
-        behavior="padding"
+        iosKeyboardVerticalOffset={40}
       >
         <ScrollView
           style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets={true}
           contentContainerStyle={{
             gap: 20,
@@ -474,7 +475,7 @@ const NewTaskModal = () => {
             />
           </Stack>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingContainer>
     </>
   );
 };

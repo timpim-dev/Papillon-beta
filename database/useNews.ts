@@ -1,6 +1,7 @@
 import { Model, Q } from "@nozbe/watermelondb";
 import { useEffect, useState } from "react";
 
+import { cacheLiveNews, getCachedLiveNews } from "@/components/communications/liveNewsCache";
 import { Attachment } from "@/services/shared/attachment";
 import { News as SharedNews } from "@/services/shared/news";
 import { generateId } from "@/utils/generateId";
@@ -42,18 +43,26 @@ export async function getNewsById(id: string): Promise<SharedNews | undefined> {
     .query(Q.where("newsId", id))
     .fetch();
   const cachedNews = records[0] ? mapNewsToShared(records[0]) : undefined;
+  const cachedLive = getCachedLiveNews(id);
 
   try {
     const { getManager } = await import("@/services/shared");
-    const freshNews = await getManager()?.getNews();
-    return freshNews?.find(item => getNewsRouteId(item) === id || item.id === id) ?? cachedNews;
+    const freshNews = await getManager(true)?.getNews();
+    if (freshNews && freshNews.length > 0) {
+      cacheLiveNews(freshNews);
+    }
+    const matched = freshNews?.find(item => getNewsRouteId(item) === id || item.id === id);
+    if (matched) return matched;
+    if (cachedLive) return cachedLive;
+    return cachedNews;
   } catch (error) {
     warn(`Unable to refresh news ${id}: ${String(error)}`);
-    return cachedNews;
+    return cachedLive ?? cachedNews;
   }
 }
 
 export async function addNewsToDatabase(news: SharedNews[]) {
+  cacheLiveNews(news);
   const db = getDatabaseInstance();
 
   // Keyed on content, not on the service id (it changes between logins); the
@@ -89,7 +98,7 @@ export async function addNewsToDatabase(news: SharedNews[]) {
           newsModel.createdAt = new Date(item.createdAt).getTime();
           newsModel.acknowledged = Boolean(item.acknowledged);
           newsModel.attachments = JSON.stringify(item.attachments ?? []);
-          newsModel.content = item.content ?? newsModel.content ?? "";
+          newsModel.content = item.content?.trim() ? item.content : (newsModel.content || "");
           newsModel.author = item.author ?? newsModel.author ?? "";
           newsModel.category = item.category ?? newsModel.category ?? "";
           newsModel.createdByAccount = item.createdByAccount ?? newsModel.createdByAccount ?? "";

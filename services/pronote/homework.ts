@@ -93,21 +93,16 @@ export async function fetchPronoteHomeworks(session: SessionHandle, accountId: s
 }
 
 export async function setPronoteHomeworkAsDone(session: SessionHandle, homework: Homework, status?: boolean): Promise<Homework> {
-  if (homework.fromCache) {
-    error("You can't set data from cache as done.")
-    return homework;
-  }
+  const nextDone = typeof status === "boolean" ? status : !homework.isDone;
+  const assignmentId = await resolvePronoteAssignmentId(session, homework);
+  await assignmentStatus(session, assignmentId, nextDone);
 
-  try {
-    await assignmentStatus(session, homework.id, status || !homework.isDone)
-  } catch (err) {
-    error(String(err))
-  }
   return {
     ...homework,
-    isDone: status || !homework.isDone,
-    progress: (status || !homework.isDone) ? 1 : 0
-  }
+    pronoteAssignmentId: assignmentId,
+    isDone: nextDone,
+    progress: nextDone ? 1 : 0,
+  };
 }
 
 async function resolvePronoteAssignmentId(

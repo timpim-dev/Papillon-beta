@@ -6,11 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Switch,
+  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useSettingsStore } from "@/stores/settings";
 import ChipButton from "@/ui/components/ChipButton";
+import KeyboardAvoidingContainer, { useKeyboardVisible } from "@/ui/components/KeyboardAvoidingContainer";
 import Stack from "@/ui/components/Stack";
 import TabHeader from "@/ui/components/TabHeader";
 import TabHeaderTitle from "@/ui/components/TabHeaderTitle";
@@ -27,6 +28,7 @@ import {
   AI_PROVIDER_PRESETS,
   AiChatMessage,
   AiFlashcardItem,
+  AiLatexSheet,
   AiProviderId,
   AiReminderAction,
   buildSocraticSystemPrompt,
@@ -37,6 +39,12 @@ import {
   sendAiChatCompletion,
 } from "@/utils/ai/aiClient";
 import {
+  ExportedLatexFiles,
+  exportLatexSheetFiles,
+  shareExportedFile,
+} from "@/utils/ai/latexPdf";
+import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
+import {
   buildStudentContextSnapshot,
   formatContextForPrompt,
   StudentContextScope,
@@ -45,6 +53,7 @@ import { scheduleStudyReminder } from "@/utils/notifications/homeworkReminders";
 
 const STARTER_PROMPTS = [
   "Préparer un plan de révision pour cette semaine",
+  "Crée une fiche de révision PDF (LaTeX) sur mon prochain cours",
   "Aide-moi sur mon prochain devoir étape par étape",
   "Analyser mes points faibles dans mes notes",
   "Fais-moi un quiz de révision rapide",
@@ -138,6 +147,169 @@ function ReminderActionCard({
   );
 }
 
+function LatexSheetCard({ sheet }: { sheet: AiLatexSheet }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const [busyMode, setBusyMode] = useState<"open" | "pdf" | "tex" | null>(null);
+  const [showSource, setShowSource] = useState(false);
+  const exportedRef = useRef<ExportedLatexFiles | null>(null);
+
+  const ensureExported = async (): Promise<ExportedLatexFiles> => {
+    if (exportedRef.current) return exportedRef.current;
+    const files = await exportLatexSheetFiles(sheet);
+    exportedRef.current = files;
+    return files;
+  };
+
+  const handleOpenPdf = async () => {
+    if (busyMode) return;
+    setBusyMode("open");
+    try {
+      const files = await ensureExported();
+      openAttachmentViewer(router, {
+        name: files.fileNamePdf,
+        url: files.pdfUri,
+        type: 1,
+      });
+    } catch (err) {
+      Alert.alert("Export PDF impossible", err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyMode(null);
+    }
+  };
+
+  const handleShare = async (kind: "pdf" | "tex") => {
+    if (busyMode) return;
+    setBusyMode(kind);
+    try {
+      const files = await ensureExported();
+      if (kind === "pdf") {
+        await shareExportedFile(files.pdfUri, "application/pdf", sheet.title || "Fiche de révision PDF");
+      } else {
+        await shareExportedFile(files.texUri, "text/plain", sheet.title || "Source LaTeX (.tex)");
+      }
+    } catch (err) {
+      Alert.alert("Partage impossible", err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusyMode(null);
+    }
+  };
+
+  return (
+    <View
+      style={{
+        marginTop: 8,
+        padding: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: String(colors.primary) + "48",
+        backgroundColor: String(colors.primary) + "10",
+        gap: 8,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Papicons name="File" size={16} color={String(colors.primary)} />
+        <Typography variant="caption" style={{ color: String(colors.primary), fontWeight: "700", flex: 1 }}>
+          FICHE LATEX • PDF PRÊT
+        </Typography>
+      </View>
+      <Typography variant="title" style={{ fontSize: 15 }}>
+        {sheet.title}
+      </Typography>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <TouchableOpacity
+          disabled={busyMode !== null}
+          onPress={() => void handleOpenPdf()}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: colors.primary,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          {busyMode === "open" ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Typography variant="caption" style={{ color: "#FFFFFF", fontWeight: "700" }}>
+              Ouvrir PDF
+            </Typography>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={busyMode !== null}
+          onPress={() => void handleShare("pdf")}
+          style={{
+            paddingHorizontal: 11,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: colors.background,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Typography variant="caption" style={{ fontWeight: "600" }}>
+            {busyMode === "pdf" ? "Export..." : "Partager .pdf"}
+          </Typography>
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={busyMode !== null}
+          onPress={() => void handleShare("tex")}
+          style={{
+            paddingHorizontal: 11,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: colors.background,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Typography variant="caption" style={{ fontWeight: "600" }}>
+            {busyMode === "tex" ? "Export..." : "Partager .tex"}
+          </Typography>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowSource(prev => !prev)}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            borderRadius: 999,
+          }}
+        >
+          <Typography variant="caption" color="textSecondary" style={{ fontWeight: "600" }}>
+            {showSource ? "Masquer LaTeX" : "Voir LaTeX"}
+          </Typography>
+        </TouchableOpacity>
+      </View>
+      {showSource && (
+        <View
+          style={{
+            backgroundColor: colors.background,
+            borderRadius: 10,
+            padding: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text
+            selectable
+            style={{
+              color: String(colors.text),
+              fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+              fontSize: 11.5,
+              lineHeight: 16,
+            }}
+          >
+            {sheet.latex}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export interface AiAssistantScreenProps {
   isModal?: boolean;
   embedded?: boolean;
@@ -157,6 +329,7 @@ export default function AiAssistantScreen({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const listRef = useRef<FlatList<AiChatMessage>>(null);
+  const keyboardVisible = useKeyboardVisible();
 
   const personalization = useSettingsStore(s => s.personalization);
   const mutateProperty = useSettingsStore(s => s.mutateProperty);
@@ -194,6 +367,15 @@ export default function AiAssistantScreen({
   useEffect(() => {
     saveAiChatHistory(messages);
   }, [messages]);
+
+  useEffect(() => {
+    if (keyboardVisible && messages.length > 0) {
+      const timer = setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: true });
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [keyboardVisible, messages.length]);
 
   const handleAcceptOnboarding = () => {
     if (!cookieSwitchChecked) {
@@ -277,6 +459,7 @@ export default function AiAssistantScreen({
         createdAt: Date.now(),
         reminders: parsed.reminders,
         flashcards: parsed.flashcards,
+        latexSheets: parsed.latexSheets,
         confirmedReminderIds: [],
       };
       setMessages(prev => [...prev, assistantMsg]);
@@ -452,9 +635,9 @@ export default function AiAssistantScreen({
   }
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingContainer
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      iosKeyboardVerticalOffset={isModal ? 60 : 0}
     >
       {!embedded && (
         <TabHeader
@@ -483,6 +666,7 @@ export default function AiAssistantScreen({
         ref={listRef}
         data={messages}
         keyExtractor={item => item.id}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           paddingTop: (embedded ? topInset : headerHeight) + 8,
           paddingHorizontal: 14,
@@ -634,6 +818,8 @@ export default function AiAssistantScreen({
               {!isUser &&
                 item.flashcards?.map(card => <FlashcardCard key={card.id} card={card} />)}
               {!isUser &&
+                item.latexSheets?.map(sheet => <LatexSheetCard key={sheet.id} sheet={sheet} />)}
+              {!isUser &&
                 item.reminders?.map(rem => (
                   <ReminderActionCard
                     key={rem.id}
@@ -651,8 +837,9 @@ export default function AiAssistantScreen({
         style={{
           paddingHorizontal: 16,
           paddingTop: 6,
-          paddingBottom:
-            embedded && !isModal && Platform.OS === "android"
+          paddingBottom: keyboardVisible
+            ? 8
+            : embedded && !isModal && Platform.OS === "android"
               ? 12
               : Math.max(insets.bottom + (isModal ? 8 : 74), 14),
         }}
@@ -673,6 +860,9 @@ export default function AiAssistantScreen({
           <TextInput
             value={inputText}
             onChangeText={setInputText}
+            onFocus={() => {
+              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 160);
+            }}
             placeholder="Pose une question sur un devoir ou un cours..."
             placeholderTextColor={String(colors.text) + "66"}
             multiline
@@ -705,6 +895,6 @@ export default function AiAssistantScreen({
           </TouchableOpacity>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingContainer>
   );
 }

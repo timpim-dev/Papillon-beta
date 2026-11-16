@@ -53,7 +53,7 @@ const isSameList = (a: Homework[], b: Homework[]) =>
  * merged with the freshly fetched homework, as arrays whose identity only
  * changes when that week's contents actually did.
  */
-export const useHomeworkData = (weeks: number[], alert: any) => {
+export const useHomeworkData = (weeks: number[], _alert: any) => {
   const [refreshingWeek, setRefreshingWeek] = useState<number | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [homework, setHomework] = useState<Record<string, Homework>>({});
@@ -89,9 +89,10 @@ export const useHomeworkData = (weeks: number[], alert: any) => {
         .map(cached => {
           // The cache owns isDone: the overlay dates from the last fetch, and a
           // task can be ticked elsewhere since (e.g. from its detail screen).
-          const overlay = cached.id ? homework[cached.id] : undefined;
+          const cacheId = cached.id || homeworkKey(cached);
+          const overlay = homework[cacheId] ?? homework[homeworkKey(cached)];
           const merged = overlay ? { ...overlay, isDone: cached.isDone } : cached;
-          const id = merged.id ?? homeworkKey(merged);
+          const id = merged.id ?? cacheId;
           const previous = previousItems.get(id);
           const item = previous && isSameHomework(previous, merged) ? previous : merged;
           nextItems.set(id, item);
@@ -148,12 +149,15 @@ export const useHomeworkData = (weeks: number[], alert: any) => {
           const id = homeworkKey(hw);
           fetched[id] = { ...hw, id: hw.id ?? id };
         }
-        fetchedWeeks.current.add(week);
+        const currentFailures = managerToUse.getFailures(Capabilities.HOMEWORK);
+        if (managerToUse.hasReadyClients(Capabilities.HOMEWORK) && currentFailures.length === 0) {
+          fetchedWeeks.current.add(week);
+        }
         setHomework(prev => ({ ...prev, ...fetched }));
         scheduleRefresh();
         // The manager falls back to the cache rather than throwing, so a service
         // that failed is only visible through its recorded failures.
-        setFailures(managerToUse.getFailures(Capabilities.HOMEWORK));
+        setFailures(currentFailures);
         setLoadError(null);
       } catch (e) {
         error("Fetch error", String(e));
@@ -213,55 +217,49 @@ export const useHomeworkData = (weeks: number[], alert: any) => {
   const setAsDone = useCallback(
     async (item: Homework, done: boolean) => {
       const id = homeworkKey(item);
+      const itemId = item.id ?? id;
+
+      // Always flip UI + local DB immediately so offline / cached tasks can still be completed.
+      setHomework(prev => ({
+        ...prev,
+        [id]: {
+          ...(prev[id] ?? item),
+          isDone: done,
+        },
+        ...(itemId !== id
+          ? {
+              [itemId]: {
+                ...(prev[itemId] ?? item),
+                isDone: done,
+              },
+            }
+          : {}),
+      }));
 
       try {
-        // A custom task has no service to sync its state with.
-        if (!item.custom) {
-          const manager = getManager();
-          await manager.setHomeworkCompletion(item, done)
-        }
-
         await updateHomeworkIsDone(id, done);
-
-        // The optimistic entry is what flips the checkbox: the database write
-        // and its cache read land a moment later.
-        setHomework(prev => ({
-          ...prev,
-          [id]: {
-            ...(prev[id] ?? item),
-            isDone: done,
-          }
-        }));
+        if (itemId !== id) {
+          await updateHomeworkIsDone(itemId, done);
+        }
         scheduleRefresh();
         if (done) {
-          notificationAsync(NotificationFeedbackType.Success);
+          void notificationAsync(NotificationFeedbackType.Success);
           void cancelHomeworkReminder(id);
         }
         trackAdvancedEvent(done ? "task_ticked" : "task_unticked");
-      }
-      catch (err) {
-        alert.showAlert({
-            title: "Une erreur est survenue",
-            message: "Ce devoir n'a pas été mis à jour",
-            description:
-              "Nous n'avons pas réussi à mettre à jour l'état du devoir, si ce devoir est important, merci de te rendre sur l'application officielle de ton établissement afin de définir son état.",
-            color: "#D60046",
-            icon: "AlertTriangle",
-            technical: String(err)
-          });
 
-        await updateHomeworkIsDone(id, !done);
-        setHomework(prev => ({
-          ...prev,
-          [id]: {
-            ...(prev[id] ?? item),
-            isDone: !done,
+        // Sync remotely when a connected homework service is ready; keep local completion offline.
+        if (!item.custom) {
+          const activeManager = getManager(true);
+          if (activeManager?.hasReadyClients(Capabilities.HOMEWORK)) {
+            await activeManager.setHomeworkCompletion(item, done);
           }
-        }));
-        scheduleRefresh();
+        }
+      } catch (err) {
+        error("Failed syncing homework completion", String(err));
       }
     },
-    [alert, scheduleRefresh]
+    [scheduleRefresh]
   );
 
   const hasData = Object.values(homeworkByWeek).some(list => list.length > 0);

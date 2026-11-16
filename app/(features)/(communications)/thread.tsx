@@ -6,8 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   RefreshControl,
   TextInput,
@@ -22,6 +20,7 @@ import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/
 import { Chat, Message } from "@/services/shared/chat";
 import { Capabilities } from "@/services/shared/types";
 import Avatar from "@/ui/components/Avatar";
+import KeyboardAvoidingContainer, { useKeyboardVisible } from "@/ui/components/KeyboardAvoidingContainer";
 import Stack from "@/ui/components/Stack";
 import Typography from "@/ui/new/Typography";
 import { getProfileColorByName } from "@/utils/chats/colors";
@@ -47,6 +46,8 @@ export default function CommunicationThreadScreen() {
   const [connectionUnavailable, setConnectionUnavailable] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
+  const keyboardVisible = useKeyboardVisible();
+  const listRef = React.useRef<FlatList<Message>>(null);
 
   const loadMessages = useCallback(async (options: { forceReconnect?: boolean; silent?: boolean } = {}) => {
     let activeChat = liveChatRef.current ?? (sig ? getCachedLiveChat(sig) : undefined);
@@ -117,11 +118,13 @@ export default function CommunicationThreadScreen() {
         if (targetChat.ref) {
           setConnectionUnavailable(false);
           const fetched = await manager.getChatMessages(targetChat);
-          setMessages(
-            dedupeMessages(fetched, getChatDbId(targetChat)).sort(
-              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-            )
+          const resolvedDbId = getChatDbId(targetChat);
+          const dedupedFetched = dedupeMessages(fetched, resolvedDbId).sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           );
+          if (dedupedFetched.length > 0 || !cached || cached.length === 0) {
+            setMessages(dedupedFetched);
+          }
           markChatAsRead(targetChat);
           if (targetChat !== activeChat) {
             markChatAsRead(activeChat);
@@ -136,9 +139,15 @@ export default function CommunicationThreadScreen() {
       setConnectionUnavailable(true);
       try {
         const cached = await getMessagesFromCache(activeChat);
-        setMessages(dedupeMessages(cached ?? [], chatDbId));
+        if (cached && cached.length > 0) {
+          setMessages(
+            dedupeMessages(cached, chatDbId).sort(
+              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+            )
+          );
+        }
       } catch {
-        setMessages([]);
+        // Keep any already-loaded messages on cache error
       }
     } finally {
       setLoading(false);
@@ -182,10 +191,9 @@ export default function CommunicationThreadScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
+    <KeyboardAvoidingContainer
       style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      iosKeyboardVerticalOffset={90}
     >
       <ExpoStack.Screen
         options={{
@@ -200,8 +208,10 @@ export default function CommunicationThreadScreen() {
         </Stack>
       ) : (
         <FlatList
+          ref={listRef}
           data={messages}
           keyExtractor={(item, idx) => `${item.id}-${idx}`}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -317,7 +327,7 @@ export default function CommunicationThreadScreen() {
             gap: 8,
             paddingHorizontal: 14,
             paddingTop: 10,
-            paddingBottom: Math.max(insets.bottom, 12),
+            paddingBottom: keyboardVisible ? 8 : Math.max(insets.bottom, 12),
             borderTopWidth: 1,
             borderTopColor: colors.border,
             backgroundColor: colors.card,
@@ -326,6 +336,9 @@ export default function CommunicationThreadScreen() {
           <TextInput
             value={replyText}
             onChangeText={setReplyText}
+            onFocus={() => {
+              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 160);
+            }}
             placeholder="Répondre à la discussion..."
             placeholderTextColor={String(colors.text) + "66"}
             multiline
@@ -361,6 +374,6 @@ export default function CommunicationThreadScreen() {
           </Pressable>
         </View>
       )}
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingContainer>
   );
 }

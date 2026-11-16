@@ -14,15 +14,14 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   TextInput,
   View,
 } from "react-native";
-import HTMLView from "react-native-htmlview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Attachment, News as SkolengoNews } from "skolengojs";
 import { Papicons } from "@getpapillon/papicons";
 
+import RichNewsContent from "@/components/news/RichNewsContent";
 import { getNewsById } from "@/database/useNews";
 import { allowAllAuthRetries } from "@/services/auth/coordinator";
 import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/services/shared";
@@ -34,11 +33,12 @@ import ActivityIndicator from "@/ui/components/ActivityIndicator";
 import Avatar from "@/ui/components/Avatar";
 import Icon from "@/ui/components/Icon";
 import Item, { Leading } from "@/ui/components/Item";
+import KeyboardAvoidingContainer from "@/ui/components/KeyboardAvoidingContainer";
 import ListLegacy from "@/ui/components/List";
 import { NativeHeaderSide } from "@/ui/components/NativeHeader";
 import SafeHorizontalView from "@/ui/components/SafeHorizontalView";
 import Stack from "@/ui/components/Stack";
-import TypographyLegacy, { VARIANTS } from "@/ui/components/Typography";
+import TypographyLegacy from "@/ui/components/Typography";
 import List from "@/ui/new/List";
 import Typography from "@/ui/new/Typography";
 import { runsIOS26 } from "@/ui/utils/IsLiquidGlass";
@@ -47,7 +47,6 @@ import { getInitials } from "@/utils/chats/initials";
 import { formatHTML } from "@/utils/format/html";
 import { cleanHtmlForArticle } from "@/utils/news/cleanUpHTMLNews";
 import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
-import { useFont } from "@/utils/theme/fonts";
 
 const NewsPage = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -59,7 +58,6 @@ const NewsPage = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
-  const font = useFont();
   const [HTMLCleanupEnabled, setHTMLCleanupEnabled] = useState(true);
 
   const loadNews = useCallback(
@@ -134,60 +132,6 @@ const NewsPage = () => {
 
     void acknowledgeNews();
   }, [news]);
-
-  const baseBodyStyle = useMemo(
-    () => ({
-      ...VARIANTS.body1,
-      fontFamily: font("medium"),
-      color: colors.text,
-    }),
-    [colors.text, font]
-  );
-
-  const stylesheet = useMemo(
-    () =>
-      StyleSheet.create({
-        p: baseBodyStyle,
-        div: baseBodyStyle,
-        span: baseBodyStyle,
-        b: { ...baseBodyStyle, fontFamily: font("bold"), fontWeight: "700" },
-        strong: { ...baseBodyStyle, fontFamily: font("bold"), fontWeight: "700" },
-        i: { ...baseBodyStyle, fontStyle: "italic" },
-        em: { ...baseBodyStyle, fontStyle: "italic" },
-        u: { ...baseBodyStyle, textDecorationLine: "underline" },
-        h1: { ...VARIANTS.h1, fontFamily: font("bold"), color: colors.text },
-        h2: { ...VARIANTS.h2, fontFamily: font("bold"), color: colors.text },
-        h3: { ...VARIANTS.h3, fontFamily: font("bold"), color: colors.text },
-        h4: { ...VARIANTS.h4, fontFamily: font("bold"), color: colors.text },
-        blockquote: {
-          ...baseBodyStyle,
-          borderLeftWidth: 3,
-          borderLeftColor: colors.primary,
-          paddingLeft: 10,
-        },
-        a: {
-          color: colors.primary,
-          textDecorationLine: "underline",
-        },
-        ul: {
-          ...baseBodyStyle,
-          paddingHorizontal: 4,
-        },
-        ol: {
-          ...baseBodyStyle,
-          paddingHorizontal: 4,
-        },
-        li: baseBodyStyle,
-      }),
-    [baseBodyStyle, colors.primary, colors.text, font]
-  );
-
-  const htmlTextProps = useMemo(
-    () => ({
-      style: baseBodyStyle,
-    }),
-    [baseBodyStyle]
-  );
 
   const surveyRef = useMemo(() => {
     const candidate = news?.ref as NewsSurvey | undefined;
@@ -276,40 +220,50 @@ const NewsPage = () => {
   const categoryLabel = news.category?.trim() || (news.question ? "Sondage" : "Information");
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={{ flex: 1 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            void loadNews({ forceReconnect: true });
-          }}
-        />
-      }
-      contentContainerStyle={{
-        paddingTop: 20,
-        paddingBottom: 20 + insets.bottom,
-      }}
-    >
-      <NativeHeaderSide side="Left">
-        <HeaderBackButton
-          tintColor={runsIOS26 ? colors.text : colors.primary}
-          onPress={() => router.back()}
-          style={{
-            marginLeft: Platform.OS === "ios" ? (runsIOS26 ? 3 : -32) : 0,
-          }}
-        />
-      </NativeHeaderSide>
+    <KeyboardAvoidingContainer iosKeyboardVerticalOffset={90} style={{ flex: 1 }}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        style={{ flex: 1 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadNews({ forceReconnect: true });
+            }}
+          />
+        }
+        contentContainerStyle={{
+          paddingTop: 20,
+          paddingBottom: 20 + insets.bottom,
+        }}
+      >
+        <NativeHeaderSide side="Left">
+          <HeaderBackButton
+            tintColor={runsIOS26 ? colors.text : colors.primary}
+            onPress={() => router.back()}
+            style={{
+              marginLeft: Platform.OS === "ios" ? (runsIOS26 ? 3 : -32) : 0,
+            }}
+          />
+        </NativeHeaderSide>
 
-      <SafeHorizontalView base={20} style={{ gap: 24 }}>
-        <Stack gap={10}>
-          <Stack padding={[10, 4]} radius={200} backgroundColor={String(colors.text) + "16"} inline>
-            <TypographyLegacy variant="body2">
-              {categoryLabel}
-            </TypographyLegacy>
-          </Stack>
+        <SafeHorizontalView base={20} style={{ gap: 24 }}>
+          <Stack gap={10}>
+            <View
+              style={{
+                alignSelf: "flex-start",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 200,
+                backgroundColor: String(colors.text) + "16",
+              }}
+            >
+              <TypographyLegacy variant="body2">
+                {categoryLabel}
+              </TypographyLegacy>
+            </View>
 
           <TypographyLegacy variant="h3">
             {news.title}
@@ -357,9 +311,7 @@ const NewsPage = () => {
                 >
                   <Typography variant="title">{qTitle}</Typography>
                   {qBody.length > 0 && (
-                    <Typography variant="body1" color="textSecondary">
-                      {qBody}
-                    </Typography>
+                    <RichNewsContent html={question.content ?? qBody} compact />
                   )}
 
                   {question.choices.length > 0 && (
@@ -458,7 +410,12 @@ const NewsPage = () => {
           <>
             {news.question && (
               <List scrollEnabled={false} safeHorizontalPadding={false}>
-                <List.Item>
+                <List.Item
+                  onPress={() => {
+                    setRefreshing(true);
+                    void loadNews({ forceReconnect: true });
+                  }}
+                >
                   <List.Leading>
                     <Icon>
                       <Papicons name="pie" />
@@ -466,25 +423,17 @@ const NewsPage = () => {
                   </List.Leading>
                   <Typography variant="title">Sondage</Typography>
                   <Typography variant="body1" color="textSecondary">
-                    Mode hors ligne : actualise la page avec ta connexion pour voter directement.
+                    Mode hors ligne : touche pour recharger et voter directement.
                   </Typography>
                 </List.Item>
               </List>
             )}
 
-            {hasVisualHtml ? (
-              <HTMLView
-                value={cleanedContent}
-                stylesheet={stylesheet}
-                textComponentProps={htmlTextProps}
-                style={{
-                  gap: 12,
-                }}
-                paragraphBreak=""
-                bullet="  •  "
+            {hasVisualHtml || plainFallback || Boolean(news.content?.trim()) ? (
+              <RichNewsContent
+                html={cleanedContent || news.content || plainFallback}
+                rawHtml={news.content}
               />
-            ) : plainFallback ? (
-              <TypographyLegacy variant="body1">{plainFallback}</TypographyLegacy>
             ) : news.attachments.length === 0 ? (
               <TypographyLegacy variant="body2" color="secondary">
                 {news.ref
@@ -533,6 +482,7 @@ const NewsPage = () => {
         )}
       </SafeHorizontalView>
     </ScrollView>
+  </KeyboardAvoidingContainer>
   );
 };
 

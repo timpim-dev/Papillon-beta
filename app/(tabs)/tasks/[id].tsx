@@ -8,8 +8,15 @@ import React, { useCallback, useRef, useState } from "react";
 import { AndroidHeaderMenu } from "@/components/AndroidHeaderItems";
 import { AudioHomeworkRecorder } from "@/components/homework/AudioHomeworkRecorder";
 import ModalOverhead from "@/components/ModalOverhead";
-import { deleteHomeworkFromDatabase, getHomeworkById, updateHomeworkIsDone } from "@/database/useHomework";
+import {
+  deleteHomeworkFromDatabase,
+  getHomeworkById,
+  getHomeworkRouteId,
+  updateHomeworkIsDone,
+} from "@/database/useHomework";
 import { getManager } from "@/services/shared";
+import { Capabilities } from "@/services/shared/types";
+import { warn } from "@/utils/logger/logger";
 import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
 import { getHomeworkUploadMeta } from "@/utils/homework/uploadMeta";
 import { cancelHomeworkReminder } from "@/utils/notifications/homeworkReminders";
@@ -98,18 +105,30 @@ const Task = () => {
 
   const setAsDone = async (done: boolean) => {
     if (!task) return;
-    // A custom task has no service to sync its state with.
-    if (!task.custom) {
-      const manager = getManager();
-      await manager?.setHomeworkCompletion(task, done);
+    setIsDone(done);
+    setTask(prev => (prev ? { ...prev, isDone: done } : prev));
+
+    const routeId = id || getHomeworkRouteId(task);
+    await updateHomeworkIsDone(routeId, done);
+    if (task.id && task.id !== routeId) {
+      await updateHomeworkIsDone(task.id, done);
+    }
+    if (done) {
+      void cancelHomeworkReminder(routeId);
     }
 
-    await updateHomeworkIsDone(id, done);
-    if (done) {
-      void cancelHomeworkReminder(id);
+    // A custom task has no service to sync its state with.
+    if (!task.custom) {
+      const manager = getManager(true);
+      if (manager?.hasReadyClients(Capabilities.HOMEWORK)) {
+        try {
+          await manager.setHomeworkCompletion(task, done);
+        } catch (err) {
+          warn(`Unable to sync homework completion: ${String(err)}`);
+        }
+      }
     }
-    setIsDone(done);
-  }
+  };
 
   const editTask = () => {
     if (!task) {
@@ -236,9 +255,9 @@ const Task = () => {
             <List.Label>{t("Modal_Task_Status")}</List.Label>
           </List.SectionTitle>
 
-          <List.Item>
+          <List.Item onPress={() => void setAsDone(!isDone)}>
             <List.Leading>
-              <AnimatedPressable onPress={() => setAsDone(!isDone)}>
+              <AnimatedPressable onPress={() => void setAsDone(!isDone)}>
                 <Stack
                   backgroundColor={
                     isDone
@@ -274,10 +293,7 @@ const Task = () => {
           </List.Item>
         </List.Section>
 
-        {(task.returnFormat === ReturnFormat.AUDIO_RECORDING ||
-          task.returnFormat === ReturnFormat.FILE_UPLOAD ||
-          task.canUpload ||
-          Boolean(task.uploadedAttachment)) && (
+        {task.returnFormat === ReturnFormat.AUDIO_RECORDING && (
           <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
             <AudioHomeworkRecorder
               homework={task}

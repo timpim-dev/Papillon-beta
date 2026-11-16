@@ -12,6 +12,7 @@ import {
 } from "@blockshub/pawnote-lts";
 
 import { Chat, Message, Recipient } from "@/services/shared/chat";
+import { readRawTextField } from "@/services/pronote/news";
 import { error } from "@/utils/logger/logger";
 
 export async function fetchPronoteChats(
@@ -83,13 +84,13 @@ export async function fetchPronoteChatMessages(
   const studentName = session.user.resources[0]?.name ?? session.user.name;
 
   return (messages.sents ?? []).map((message) => {
-    const baseContent = typeof message.content === "string" ? message.content : "";
+    const baseContent = readRawTextField(message.content);
     const transferredFallback =
       !baseContent.trim() && Array.isArray(message.transferredMessages) && message.transferredMessages.length > 0
         ? message.transferredMessages
             .map(tm => {
               const sender = tm.author?.name ? `${tm.author.name} : ` : "";
-              return `${sender}${tm.content ?? ""}`.trim();
+              return `${sender}${readRawTextField(tm.content)}`.trim();
             })
             .filter(Boolean)
             .join("\n\n")

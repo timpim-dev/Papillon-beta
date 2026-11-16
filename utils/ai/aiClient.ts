@@ -1,6 +1,10 @@
 import * as SecureStore from "expo-secure-store";
 import { createMMKV } from "react-native-mmkv";
 
+import { AiLatexSheet, extractLatexBlocks } from "./latexParser";
+
+export type { AiLatexSheet };
+
 export type AiProviderId = "gemini" | "groq" | "mistral" | "custom";
 
 export interface AiChatMessage {
@@ -10,6 +14,7 @@ export interface AiChatMessage {
   createdAt: number;
   reminders?: AiReminderAction[];
   flashcards?: AiFlashcardItem[];
+  latexSheets?: AiLatexSheet[];
   confirmedReminderIds?: string[];
 }
 
@@ -34,6 +39,7 @@ export interface ParsedAiResponse {
   displayText: string;
   reminders: AiReminderAction[];
   flashcards: AiFlashcardItem[];
+  latexSheets: AiLatexSheet[];
 }
 
 export interface AiProviderPreset {
@@ -127,6 +133,7 @@ export function buildSocraticSystemPrompt(contextText: string): string {
     '   - { "type": "schedule_reminder", "title": "Réviser Maths : Fonctions", "body": "Relire le cours + 2 exos types", "triggerIso": "2026-11-15T18:00:00.000Z", "subject": "Mathématiques" }',
     '   - { "type": "flashcard", "subject": "Histoire", "front": "Date clé...", "back": "Réponse concise..." }',
     "   Ne mets un rappel que s'il correspond à un futur créneau libre ou à la demande de l'élève.",
+    "6. FICHES DE RÉVISION LaTeX & PDF : si l'élève te demande une fiche de révision, un formulaire, une fiche mémo, du LaTeX ou un PDF pour réviser, génère un document LaTeX complet et propre entre <<<LATEX_DOC et LATEX_DOC>>> (ou un bloc ```latex ... ```). Commence par \\documentclass{article}, mets \\title{...}, \\section*{...}, listes (itemize/enumerate), formules ($...$, $$...$$) ou tableaux (tabular). L'app le convertira automatiquement en fichier PDF et .tex téléchargeable. Continue à refuser d'écrire un devoir noté à rendre à la place de l'élève.",
     "",
     "=== CONTEXTE SCOLAIRE (LECTURE SEULE) ===",
     contextText || "(Aucun contexte scolaire sélectionné)",
@@ -136,10 +143,18 @@ export function buildSocraticSystemPrompt(contextText: string): string {
 export function parseAssistantResponse(rawText: string): ParsedAiResponse {
   const regex = /<<<ACTIONS\s*([\s\S]*?)\s*ACTIONS>>>/m;
   const match = regex.exec(rawText);
-  const displayText = rawText.replace(regex, "").trim();
+  const withoutActions = rawText.replace(regex, "").trim();
+  const { displayText, latexSheets } = extractLatexBlocks(withoutActions);
 
   if (!match) {
-    return { displayText, reminders: [], flashcards: [] };
+    return {
+      displayText:
+        displayText ||
+        (latexSheets.length > 0 ? "Voici ta fiche de révision prête à être ouverte ou exportée en PDF." : ""),
+      reminders: [],
+      flashcards: [],
+      latexSheets,
+    };
   }
 
   const reminders: AiReminderAction[] = [];
@@ -185,7 +200,14 @@ export function parseAssistantResponse(rawText: string): ParsedAiResponse {
     // Ignore malformed optional action block so text response still renders cleanly
   }
 
-  return { displayText, reminders, flashcards };
+  return {
+    displayText:
+      displayText ||
+      (latexSheets.length > 0 ? "Voici ta fiche de révision prête à être ouverte ou exportée en PDF." : ""),
+    reminders,
+    flashcards,
+    latexSheets,
+  };
 }
 
 export interface SendAiChatParams {
@@ -221,7 +243,7 @@ export function buildProviderRequest(params: SendAiChatParams): {
         contents,
         generationConfig: {
           temperature: 0.45,
-          maxOutputTokens: 1200,
+          maxOutputTokens: 2400,
         },
       }),
     };
@@ -247,7 +269,7 @@ export function buildProviderRequest(params: SendAiChatParams): {
     body: JSON.stringify({
       model,
       temperature: 0.45,
-      max_tokens: 1200,
+      max_tokens: 2400,
       messages: [
         { role: "system", content: params.systemPrompt },
         ...params.messages.map(m => ({ role: m.role, content: m.content })),
