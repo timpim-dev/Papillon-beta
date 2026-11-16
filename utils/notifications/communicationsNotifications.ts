@@ -20,12 +20,18 @@ const KNOWN_NEWS_SIGNATURES_KEY = "known_news_signatures";
 const READ_SIGNATURES_KEY = "read_chat_signatures";
 
 function getStableChatKey(
-  chat: Pick<Chat, "id" | "subject" | "creator" | "createdByAccount"> & {
+  chat: Pick<Chat, "id" | "subject" | "creator" | "recipient" | "createdByAccount"> & {
     ref?: unknown;
   }
 ): string {
+  const subject = (chat.subject ?? "").trim();
+  const creator = (chat.creator ?? "").trim();
+  const recipient = (chat.recipient ?? "").trim();
+  if (subject || creator || recipient) {
+    return `${subject}|${creator}|${recipient}`;
+  }
   const refObj = (chat.ref ?? {}) as { participantsMessageID?: string };
-  return refObj.participantsMessageID || chat.id || `${chat.subject}:${chat.creator ?? ""}`;
+  return refObj.participantsMessageID || chat.id;
 }
 
 /**
@@ -33,7 +39,7 @@ function getStableChatKey(
  * Intentionally excludes `date` because Pronote relative date parsing shifts across launches.
  */
 export function buildChatSignature(
-  chat: Pick<Chat, "id" | "subject" | "creator" | "createdByAccount"> & {
+  chat: Pick<Chat, "id" | "subject" | "creator" | "recipient" | "createdByAccount"> & {
     date?: Date | string | number;
     ref?: unknown;
   }

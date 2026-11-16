@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { Papicons } from "@getpapillon/papicons";
+import { useEffect, useMemo, useState } from "react";
 import { Platform, View } from "react-native";
 import GlassContainer from "@/ui/new/GlassContainer";
 import { useTheme } from "expo-router/react-navigation";
@@ -18,6 +19,7 @@ import adjust from "@/utils/adjustColor";
 import i18n from "@/utils/i18n";
 import { useSettingsStore } from "@/stores/settings";
 import { formatGradeScoreForDisplay, getGradeDisplayScale } from "@/utils/grades/scale";
+import { isGradeGachaOpened, subscribeGradeGachaUpdates } from "@/utils/fun/gradeGacha";
 
 const CompactGrade = ({
   grade,
@@ -29,6 +31,17 @@ const CompactGrade = ({
   const theme = useTheme();
 
   const displayScale = getGradeDisplayScale(useSettingsStore(state => state.personalization.gradesDisplayScale));
+  const funModeEnabled = useSettingsStore(state => state.personalization.funModeEnabled ?? false);
+  const openingStyle = useSettingsStore(state => state.personalization.funModeOpeningStyle ?? "envelope");
+  const [, setGachaTick] = useState(0);
+
+  useEffect(() => {
+    if (!funModeEnabled) return;
+    return subscribeGradeGachaUpdates(() => setGachaTick(x => x + 1));
+  }, [funModeEnabled]);
+
+  const isMysteryConcealed = funModeEnabled && !isGradeGachaOpened(grade.id);
+
   const score = useMemo(
     () => formatGradeScoreForDisplay(grade.studentScore, grade.outOf, displayScale),
     [grade.studentScore, grade.outOf, displayScale]
@@ -125,13 +138,35 @@ const CompactGrade = ({
           flexDirection: 'row',
           alignItems: 'flex-end',
         }}>
-          <Typography variant="h3" numberOfLines={2} color={tintedTextColor}>
-            {score.value}
-          </Typography>
-          {score.denominator !== '' && (
-            <Typography variant="body1" color={tintedTextColorSecondary} numberOfLines={1}>
-              {score.denominator}
-            </Typography>
+          {isMysteryConcealed ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 7,
+                paddingVertical: 4,
+              }}
+            >
+              {openingStyle === "gift" ? (
+                <Papicons name="Archive" size={20} color={tintedTextColor} />
+              ) : (
+                <Papicons name="Mail" size={20} color={tintedTextColor} />
+              )}
+              <Typography variant="title" weight="semibold" style={{ color: tintedTextColor }}>
+                À ouvrir
+              </Typography>
+            </View>
+          ) : (
+            <>
+              <Typography variant="h3" numberOfLines={2} color={tintedTextColor}>
+                {score.value}
+              </Typography>
+              {score.denominator !== '' && (
+                <Typography variant="body1" color={tintedTextColorSecondary} numberOfLines={1}>
+                  {score.denominator}
+                </Typography>
+              )}
+            </>
           )}
         </View> 
       </View>

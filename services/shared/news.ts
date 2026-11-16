@@ -1,5 +1,5 @@
 import { ActualitiesResponse } from "esup-multi.js";
-import { NewsInformation } from "@blockshub/pawnote-lts";
+import { NewsInformation, NewsSurvey } from "@blockshub/pawnote-lts";
 import { News as SkolengoNews } from "skolengojs";
 
 import { Attachment } from "@/services/shared/attachment";
@@ -26,5 +26,5 @@ export interface News extends GenericInterface {
   author: string;
   category: string;
   question?: boolean;
-  ref?: NewsInformation | SkolengoNews | ActualitiesResponse;
+  ref?: NewsInformation | NewsSurvey | SkolengoNews | ActualitiesResponse;
 }

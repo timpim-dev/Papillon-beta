@@ -9,15 +9,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { cacheLiveChats, getCachedLiveChat } from "@/components/communications/liveChatsCache";
-import { getMessagesFromCache } from "@/database/useChat";
-import { getManager } from "@/services/shared";
+import { dedupeMessages, getChatDbId, getChatsFromCache, getMessagesFromCache } from "@/database/useChat";
+import { allowAllAuthRetries } from "@/services/auth/coordinator";
+import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/services/shared";
 import { Chat, Message } from "@/services/shared/chat";
+import { Capabilities } from "@/services/shared/types";
 import Avatar from "@/ui/components/Avatar";
 import Stack from "@/ui/components/Stack";
 import Typography from "@/ui/new/Typography";
@@ -35,28 +38,64 @@ export default function CommunicationThreadScreen() {
   const insets = useSafeAreaInsets();
   const initialChat = sig ? getCachedLiveChat(sig) : undefined;
   const [liveChat, setLiveChat] = useState<Chat | undefined>(initialChat);
+  const liveChatRef = React.useRef<Chat | undefined>(initialChat);
   const chat = liveChat ?? initialChat;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [connectionUnavailable, setConnectionUnavailable] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
 
-  const loadMessages = useCallback(async () => {
-    const activeChat = liveChat ?? (sig ? getCachedLiveChat(sig) : undefined);
+  const loadMessages = useCallback(async (options: { forceReconnect?: boolean; silent?: boolean } = {}) => {
+    let activeChat = liveChatRef.current ?? (sig ? getCachedLiveChat(sig) : undefined);
+    if (!activeChat && sig) {
+      try {
+        const cachedChats = await getChatsFromCache();
+        activeChat = cachedChats.find(c => buildChatSignature(c) === sig);
+        if (activeChat) {
+          liveChatRef.current = activeChat;
+          setLiveChat(activeChat);
+        }
+      } catch {
+        // Ignore cache lookup failure
+      }
+    }
     if (!activeChat) {
       setLoading(false);
+      setRefreshing(false);
       return;
     }
-    setLoading(true);
+
+    const chatDbId = getChatDbId(activeChat);
+    if (!options.silent && !options.forceReconnect) {
+      setLoading(true);
+    }
+
     try {
       const cached = await getMessagesFromCache(activeChat);
       if (cached && cached.length > 0) {
-        setMessages([...cached].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+        setMessages(
+          dedupeMessages(cached, chatDbId).sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          )
+        );
       }
 
-      const manager = getManager();
-      if (manager) {
+      let manager = getManager(true);
+      if (options.forceReconnect || !manager?.hasReadyClients(Capabilities.CHAT_READ)) {
+        if (options.forceReconnect) {
+          allowAllAuthRetries();
+        }
+        try {
+          manager = await initializeAccountManager(undefined, { force: options.forceReconnect });
+        } catch {
+          manager = getManager(true);
+        }
+      }
+
+      if (manager && manager.hasReadyClients(Capabilities.CHAT_READ)) {
         let targetChat = activeChat;
         if (!targetChat.ref) {
           const allChats = await manager.getChats();
@@ -65,35 +104,59 @@ export default function CommunicationThreadScreen() {
             (sig ? allChats.find(c => buildChatSignature(c) === sig) : undefined) ??
             allChats.find(
               c =>
-                c.subject === activeChat.subject &&
-                c.creator === activeChat.creator
+                c.subject === activeChat!.subject &&
+                c.creator === activeChat!.creator
             );
           if (matched) {
             targetChat = matched;
+            liveChatRef.current = matched;
             setLiveChat(matched);
           }
         }
-        const fetched = await manager.getChatMessages(targetChat);
-        setMessages([...fetched].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
-        markChatAsRead(targetChat);
-        if (targetChat !== activeChat) {
-          markChatAsRead(activeChat);
+
+        if (targetChat.ref) {
+          setConnectionUnavailable(false);
+          const fetched = await manager.getChatMessages(targetChat);
+          setMessages(
+            dedupeMessages(fetched, getChatDbId(targetChat)).sort(
+              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+            )
+          );
+          markChatAsRead(targetChat);
+          if (targetChat !== activeChat) {
+            markChatAsRead(activeChat);
+          }
+        } else {
+          setConnectionUnavailable(true);
         }
+      } else {
+        setConnectionUnavailable(true);
       }
     } catch {
+      setConnectionUnavailable(true);
       try {
         const cached = await getMessagesFromCache(activeChat);
-        setMessages(cached ?? []);
+        setMessages(dedupeMessages(cached ?? [], chatDbId));
       } catch {
         setMessages([]);
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [liveChat, sig]);
+  }, [sig]);
 
   useEffect(() => {
     void loadMessages();
+    const unsub = subscribeManagerUpdate(() => {
+      void loadMessages({ silent: true });
+    });
+    return () => unsub();
+  }, [loadMessages]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    void loadMessages({ forceReconnect: true });
   }, [loadMessages]);
 
   const handleSendReply = async () => {
@@ -139,6 +202,12 @@ export default function CommunicationThreadScreen() {
         <FlatList
           data={messages}
           keyExtractor={(item, idx) => `${item.id}-${idx}`}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+            />
+          }
           contentContainerStyle={{
             paddingHorizontal: 16,
             paddingTop: 12,
@@ -146,10 +215,27 @@ export default function CommunicationThreadScreen() {
             gap: 12,
           }}
           ListEmptyComponent={
-            <Stack vAlign="center" hAlign="center" padding={[24, 48]}>
-              <Typography variant="caption" color="textSecondary">
-                Aucun message dans cette conversation.
+            <Stack vAlign="center" hAlign="center" padding={[24, 48]} gap={12}>
+              <Typography variant="caption" color="textSecondary" align="center">
+                {connectionUnavailable
+                  ? "Impossible de récupérer les messages pour le moment (session en attente ou hors ligne)."
+                  : "Aucun message dans cette conversation."}
               </Typography>
+              {connectionUnavailable && (
+                <Pressable
+                  onPress={handleRefresh}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 999,
+                    backgroundColor: colors.primary,
+                  }}
+                >
+                  <Typography variant="caption" style={{ color: "#FFFFFF", fontWeight: "700" }}>
+                    Réessayer
+                  </Typography>
+                </Pressable>
+              )}
             </Stack>
           }
           renderItem={({ item }) => {

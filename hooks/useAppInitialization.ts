@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 
 import { initializeDatabaseOnStartup } from '@/database/utils/initialization';
 import { configureTips, resetTipsDatastore, showAllTips } from '@/modules/papillon-tips';
-import { initializeAccountManager } from '@/services/shared';
+import { initializeAccountManager, getManager } from '@/services/shared';
 import { useSettingsStore } from '@/stores/settings';
 import { useTipsStore } from '@/stores/tips';
 import i18n from '@/utils/i18n';
@@ -94,13 +94,12 @@ export function useAppInitialization() {
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === "active") {
-        if (lastBackgroundRef.current) {
-          const now = Date.now();
-          const durationMs = now - lastBackgroundRef.current;
+        const manager = getManager(true);
+        const missingClients = !manager?.hasReadyClients();
+        const elapsedMs = lastBackgroundRef.current ? Date.now() - lastBackgroundRef.current : 0;
 
-          if (durationMs > 5 * 60 * 1000) {
-            initializeAccountManager().catch(e => warn(`Background account refresh failed: ${e}`));
-          }
+        if (missingClients || elapsedMs > 5 * 60 * 1000) {
+          initializeAccountManager().catch(e => warn(`Background account refresh failed: ${e}`));
         }
       }
 

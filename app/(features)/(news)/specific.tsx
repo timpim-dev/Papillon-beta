@@ -1,134 +1,293 @@
-import { getManager } from "@/services/shared";
-import { News } from "@/services/shared/news";
+import {
+  NewsQuestion,
+  NewsQuestionKind,
+  newsQuestionLocalMutate,
+  NewsSurvey,
+} from "@blockshub/pawnote-lts";
+import { HeaderBackButton, useTheme } from "expo-router/react-navigation";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { t } from "i18next";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import HTMLView from "react-native-htmlview";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Attachment, News as SkolengoNews } from "skolengojs";
+import { Papicons } from "@getpapillon/papicons";
+
 import { getNewsById } from "@/database/useNews";
+import { allowAllAuthRetries } from "@/services/auth/coordinator";
+import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/services/shared";
+import { News } from "@/services/shared/news";
+import { Capabilities } from "@/services/shared/types";
 import { useAccountStore } from "@/stores/account";
 import { Services } from "@/stores/account/types";
+import ActivityIndicator from "@/ui/components/ActivityIndicator";
+import Avatar from "@/ui/components/Avatar";
+import Icon from "@/ui/components/Icon";
+import Item, { Leading } from "@/ui/components/Item";
+import ListLegacy from "@/ui/components/List";
+import { NativeHeaderSide } from "@/ui/components/NativeHeader";
+import SafeHorizontalView from "@/ui/components/SafeHorizontalView";
 import Stack from "@/ui/components/Stack";
 import TypographyLegacy, { VARIANTS } from "@/ui/components/Typography";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { Platform, ScrollView, StyleSheet, View } from "react-native";
-import { Attachment, News as SkolengoNews } from "skolengojs";
-
-import HTMLView from "react-native-htmlview";
-import { HeaderBackButton, useTheme } from "expo-router/react-navigation";
-import { NativeHeaderSide } from "@/ui/components/NativeHeader";
-import Icon from "@/ui/components/Icon";
-import { t } from "i18next";
-import ListLegacy from "@/ui/components/List";
-import Item, { Leading } from "@/ui/components/Item";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cleanHtmlForArticle } from "@/utils/news/cleanUpHTMLNews";
-import Avatar from "@/ui/components/Avatar";
-import { getInitials } from "@/utils/chats/initials";
-import { runsIOS26 } from "@/ui/utils/IsLiquidGlass";
-import { Papicons } from "@getpapillon/papicons";
-import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
-import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
 import List from "@/ui/new/List";
 import Typography from "@/ui/new/Typography";
+import { runsIOS26 } from "@/ui/utils/IsLiquidGlass";
+import { openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
+import { getInitials } from "@/utils/chats/initials";
+import { formatHTML } from "@/utils/format/html";
+import { cleanHtmlForArticle } from "@/utils/news/cleanUpHTMLNews";
+import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
 import { useFont } from "@/utils/theme/fonts";
-import ActivityIndicator from "@/ui/components/ActivityIndicator";
-import SafeHorizontalView from "@/ui/components/SafeHorizontalView";
 
 const NewsPage = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [news, setNews] = useState<News>();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [surveyVersion, setSurveyVersion] = useState(0);
+  const [submittingSurvey, setSubmittingSurvey] = useState(false);
   const insets = useSafeAreaInsets();
-  const router = useRouter()
+  const router = useRouter();
   const { colors } = useTheme();
   const font = useFont();
-  const [HTMLCleanupEnabled, setHTMLCleanupEnabled] = useState(true)
+  const [HTMLCleanupEnabled, setHTMLCleanupEnabled] = useState(true);
+
+  const loadNews = useCallback(
+    async (options: { forceReconnect?: boolean; silent?: boolean } = {}) => {
+      if (!id) {
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      if (!options.silent && !options.forceReconnect) {
+        setLoading(true);
+      }
+      try {
+        const manager = getManager(true);
+        if (options.forceReconnect || !manager?.hasReadyClients(Capabilities.NEWS)) {
+          if (options.forceReconnect) {
+            allowAllAuthRetries();
+          }
+          await initializeAccountManager(undefined, { force: options.forceReconnect }).catch(
+            () => undefined
+          );
+        }
+        const result = await getNewsById(id);
+        setNews(result);
+        setSurveyVersion(v => v + 1);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [id]
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    getNewsById(id)
-      .then(result => {
-        if (!cancelled) setNews(result);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+    void loadNews();
+    const unsub = subscribeManagerUpdate(() => {
+      void loadNews({ silent: true });
+    });
+    return () => unsub();
+  }, [loadNews]);
 
   useEffect(() => {
-    if (!news) return;
+    if (!news || news.acknowledged || !news.ref) return;
     const acknowledgeNews = async () => {
-      if (!news.acknowledged) {
-        const manager = getManager();
+      try {
+        const manager = getManager(true);
+        if (!manager?.hasReadyClients(Capabilities.NEWS)) return;
 
-        const store = useAccountStore.getState()
-        const account = store.accounts.find(account => account.id === store.lastUsedAccount)
-        const service = account?.services.find(service => service.id === news.createdByAccount)
+        const store = useAccountStore.getState();
+        const account = store.accounts.find(account => account.id === store.lastUsedAccount);
+        const service = account?.services.find(service => service.id === news.createdByAccount);
 
         if (service?.serviceId === Services.SKOLENGO) {
-          const attachment = new Attachment("", "", "")
-
+          const attachment = new Attachment("", "", "");
           news.ref = new SkolengoNews(
             news.id,
             news.createdAt,
             news.title ?? "",
             news.content,
             news.content,
-            {
-              id: "",
-              name: "",
-            },
+            { id: "", name: "" },
             "",
             attachment
           );
         }
 
-        await manager?.setNewsAsDone(news);
+        await manager.setNewsAsDone(news);
+      } catch {
+        // Non-blocking acknowledgement
       }
     };
 
-    acknowledgeNews();
-  }, [news])
+    void acknowledgeNews();
+  }, [news]);
 
-  const stylesheet = StyleSheet.create({
-    ...VARIANTS,
-    p: {
+  const baseBodyStyle = useMemo(
+    () => ({
       ...VARIANTS.body1,
       fontFamily: font("medium"),
       color: colors.text,
-    },
-    div: {
-      ...VARIANTS.body1,
-      fontFamily: font("medium"),
-      color: colors.text,
-    },
-    a: {
-      color: colors.primary,
-      textDecorationLine: 'underline'
-    },
-    ul: {
-      ...VARIANTS.body1,
-      fontFamily: font("medium"),
-      paddingHorizontal: 4,
-      color: colors.text,
-    },
-  });
+    }),
+    [colors.text, font]
+  );
+
+  const stylesheet = useMemo(
+    () =>
+      StyleSheet.create({
+        p: baseBodyStyle,
+        div: baseBodyStyle,
+        span: baseBodyStyle,
+        b: { ...baseBodyStyle, fontFamily: font("bold"), fontWeight: "700" },
+        strong: { ...baseBodyStyle, fontFamily: font("bold"), fontWeight: "700" },
+        i: { ...baseBodyStyle, fontStyle: "italic" },
+        em: { ...baseBodyStyle, fontStyle: "italic" },
+        u: { ...baseBodyStyle, textDecorationLine: "underline" },
+        h1: { ...VARIANTS.h1, fontFamily: font("bold"), color: colors.text },
+        h2: { ...VARIANTS.h2, fontFamily: font("bold"), color: colors.text },
+        h3: { ...VARIANTS.h3, fontFamily: font("bold"), color: colors.text },
+        h4: { ...VARIANTS.h4, fontFamily: font("bold"), color: colors.text },
+        blockquote: {
+          ...baseBodyStyle,
+          borderLeftWidth: 3,
+          borderLeftColor: colors.primary,
+          paddingLeft: 10,
+        },
+        a: {
+          color: colors.primary,
+          textDecorationLine: "underline",
+        },
+        ul: {
+          ...baseBodyStyle,
+          paddingHorizontal: 4,
+        },
+        ol: {
+          ...baseBodyStyle,
+          paddingHorizontal: 4,
+        },
+        li: baseBodyStyle,
+      }),
+    [baseBodyStyle, colors.primary, colors.text, font]
+  );
+
+  const htmlTextProps = useMemo(
+    () => ({
+      style: baseBodyStyle,
+    }),
+    [baseBodyStyle]
+  );
+
+  const surveyRef = useMemo(() => {
+    const candidate = news?.ref as NewsSurvey | undefined;
+    return candidate && candidate.is === "survey" && Array.isArray(candidate.questions)
+      ? candidate
+      : undefined;
+  }, [news]);
+
+  const handleToggleChoice = (question: NewsQuestion, choicePosition: number) => {
+    if (question.kind === NewsQuestionKind.UniqueChoice) {
+      newsQuestionLocalMutate(question, [choicePosition], question.textInputAnswer);
+      setSurveyVersion(v => v + 1);
+      return;
+    }
+
+    const current = new Set(question.selectedAnswers ?? []);
+    if (current.has(choicePosition)) {
+      current.delete(choicePosition);
+    } else {
+      if (
+        question.shouldRespectMaximumChoices &&
+        question.maximumChoices > 0 &&
+        current.size >= question.maximumChoices
+      ) {
+        return;
+      }
+      current.add(choicePosition);
+    }
+    const next = Array.from(current).sort((a, b) => a - b);
+    newsQuestionLocalMutate(
+      question,
+      next.length > 0 ? next : undefined,
+      question.textInputAnswer
+    );
+    setSurveyVersion(v => v + 1);
+  };
+
+  const handleSurveyTextChange = (question: NewsQuestion, text: string) => {
+    if (question.kind === NewsQuestionKind.TextInput) {
+      newsQuestionLocalMutate(question, text || undefined);
+    } else {
+      newsQuestionLocalMutate(question, question.selectedAnswers, text);
+    }
+    setSurveyVersion(v => v + 1);
+  };
+
+  const handleSubmitSurvey = async () => {
+    if (!news || !surveyRef || submittingSurvey) return;
+    const manager = getManager(true);
+    if (!manager?.hasReadyClients(Capabilities.NEWS)) {
+      Alert.alert("Hors ligne", "Impossible d'envoyer tes réponses pour le moment.");
+      return;
+    }
+    setSubmittingSurvey(true);
+    try {
+      const updated = await manager.submitNewsSurvey(news);
+      setNews(updated);
+      setSurveyVersion(v => v + 1);
+      Alert.alert("Sondage envoyé", "Ta réponse a bien été enregistrée.");
+    } catch (err) {
+      Alert.alert("Erreur", `L'envoi du sondage a échoué : ${String(err)}`);
+    } finally {
+      setSubmittingSurvey(false);
+    }
+  };
 
   if (loading) {
-    return <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator /></View>;
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
   }
 
   if (!news) {
-    return <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Typography variant="title">{t("News_Empty_Title")}</Typography></View>;
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Typography variant="title">{t("News_Empty_Title")}</Typography>
+      </View>
+    );
   }
 
-  const cleanedContent = HTMLCleanupEnabled ? cleanHtmlForArticle(news.content) : news.content
+  const cleanedContent = HTMLCleanupEnabled ? cleanHtmlForArticle(news.content ?? "") : (news.content ?? "");
+  const plainFallback = formatHTML(news.content ?? "").trim();
+  const hasVisualHtml = Boolean(cleanedContent.trim()) && (Boolean(formatHTML(cleanedContent).trim()) || /<img\s/i.test(cleanedContent));
+  const categoryLabel = news.category?.trim() || (news.question ? "Sondage" : "Information");
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={{ flex: 1 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            void loadNews({ forceReconnect: true });
+          }}
+        />
+      }
       contentContainerStyle={{
         paddingTop: 20,
         paddingBottom: 20 + insets.bottom,
@@ -138,18 +297,17 @@ const NewsPage = () => {
         <HeaderBackButton
           tintColor={runsIOS26 ? colors.text : colors.primary}
           onPress={() => router.back()}
-
           style={{
-            marginLeft: Platform.OS === 'ios' ? (runsIOS26 ? 3 : -32) : 0,
+            marginLeft: Platform.OS === "ios" ? (runsIOS26 ? 3 : -32) : 0,
           }}
         />
       </NativeHeaderSide>
 
       <SafeHorizontalView base={20} style={{ gap: 24 }}>
         <Stack gap={10}>
-          <Stack padding={[10, 4]} radius={200} backgroundColor={colors.text + "16"}>
+          <Stack padding={[10, 4]} radius={200} backgroundColor={String(colors.text) + "16"} inline>
             <TypographyLegacy variant="body2">
-              {news.category}
+              {categoryLabel}
             </TypographyLegacy>
           </Stack>
 
@@ -167,41 +325,175 @@ const NewsPage = () => {
 
             <TypographyLegacy nowrap variant="body2" color="secondary">
               {new Date(news.createdAt).toLocaleDateString(undefined, {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
               })}
             </TypographyLegacy>
           </Stack>
         </Stack>
 
-        {news.question && (
-          <List scrollEnabled={false}>
-            <List.Item>
-              <List.Leading>
-                <Icon>
-                  <Papicons name="pie" />
-                </Icon>
-              </List.Leading>
-              <Typography variant="title">
-                Cette actualité contient un sondage
-              </Typography>
-              <Typography variant="body1" color="textSecondary">
-                PRONOTE ne nous permet pas d'afficher les sondages pour le moment.
-              </Typography>
-            </List.Item>
-          </List>
-        )}
+        {surveyRef && surveyRef.questions.length > 0 ? (
+          <View key={`survey-${surveyVersion}`} style={{ gap: 14 }}>
+            {surveyRef.questions.map((question, qIndex) => {
+              const selectedSet = new Set(question.selectedAnswers ?? []);
+              const qTitle = (question.title || question.fullTitle || `Question ${qIndex + 1}`).trim();
+              const qBody = formatHTML(question.content ?? "").trim();
+              const hasFreeTextChoice = question.choices.some(
+                c => c.isTextInput && selectedSet.has(c.position)
+              );
 
-        <HTMLView
-          value={cleanedContent}
-          stylesheet={stylesheet}
-          style={{
-            gap: 12
-          }}
-          paragraphBreak=""
-          bullet="  •  "
-        />
+              return (
+                <View
+                  key={question.id || qIndex}
+                  style={{
+                    backgroundColor: colors.card,
+                    borderRadius: 16,
+                    padding: 14,
+                    gap: 10,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Typography variant="title">{qTitle}</Typography>
+                  {qBody.length > 0 && (
+                    <Typography variant="body1" color="textSecondary">
+                      {qBody}
+                    </Typography>
+                  )}
+
+                  {question.choices.length > 0 && (
+                    <View style={{ gap: 8 }}>
+                      {question.choices.map(choice => {
+                        const checked = selectedSet.has(choice.position);
+                        return (
+                          <Pressable
+                            key={choice.position}
+                            onPress={() => handleToggleChoice(question, choice.position)}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 10,
+                              paddingVertical: 10,
+                              paddingHorizontal: 12,
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: checked ? colors.primary : colors.border,
+                              backgroundColor: checked ? String(colors.primary) + "18" : "transparent",
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius:
+                                  question.kind === NewsQuestionKind.UniqueChoice ? 9 : 5,
+                                borderWidth: 2,
+                                borderColor: checked ? colors.primary : colors.border,
+                                backgroundColor: checked ? colors.primary : "transparent",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {checked && <Papicons name="Check" size={12} color="#FFFFFF" />}
+                            </View>
+                            <Typography variant="body1" style={{ flex: 1 }}>
+                              {choice.value}
+                            </Typography>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {(question.kind === NewsQuestionKind.TextInput || hasFreeTextChoice) && (
+                    <TextInput
+                      value={question.textInputAnswer ?? ""}
+                      onChangeText={text => handleSurveyTextChange(question, text)}
+                      placeholder="Ta réponse..."
+                      placeholderTextColor={String(colors.text) + "66"}
+                      multiline
+                      maxLength={question.maximumLength > 0 ? question.maximumLength : undefined}
+                      style={{
+                        minHeight: 44,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        fontSize: 15,
+                      }}
+                    />
+                  )}
+                </View>
+              );
+            })}
+
+            <Pressable
+              onPress={() => void handleSubmitSurvey()}
+              disabled={submittingSurvey}
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 14,
+                paddingVertical: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: submittingSurvey ? 0.6 : 1,
+              }}
+            >
+              {submittingSurvey ? (
+                <ActivityIndicator size={20} color="#FFFFFF" />
+              ) : (
+                <Typography variant="title" style={{ color: "#FFFFFF" }}>
+                  {surveyRef.questions.some(q => q.answered)
+                    ? "Mettre à jour ma réponse"
+                    : "Envoyer mes réponses"}
+                </Typography>
+              )}
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {news.question && (
+              <List scrollEnabled={false} safeHorizontalPadding={false}>
+                <List.Item>
+                  <List.Leading>
+                    <Icon>
+                      <Papicons name="pie" />
+                    </Icon>
+                  </List.Leading>
+                  <Typography variant="title">Sondage</Typography>
+                  <Typography variant="body1" color="textSecondary">
+                    Mode hors ligne : actualise la page avec ta connexion pour voter directement.
+                  </Typography>
+                </List.Item>
+              </List>
+            )}
+
+            {hasVisualHtml ? (
+              <HTMLView
+                value={cleanedContent}
+                stylesheet={stylesheet}
+                textComponentProps={htmlTextProps}
+                style={{
+                  gap: 12,
+                }}
+                paragraphBreak=""
+                bullet="  •  "
+              />
+            ) : plainFallback ? (
+              <TypographyLegacy variant="body1">{plainFallback}</TypographyLegacy>
+            ) : news.attachments.length === 0 ? (
+              <TypographyLegacy variant="body2" color="secondary">
+                {news.ref
+                  ? "Aucun contenu texte dans cette publication."
+                  : "Contenu non encore synchronisé (session en attente ou hors ligne). Tire vers le bas pour actualiser."}
+              </TypographyLegacy>
+            ) : null}
+          </>
+        )}
 
         {news.attachments.length > 0 && (
           <ListLegacy>
@@ -223,18 +515,24 @@ const NewsPage = () => {
           </ListLegacy>
         )}
 
-        <Stack gap={0} style={{ opacity: 0.4 }}>
-          <TypographyLegacy variant="caption">
-            Si cette actualité ne s'affiche pas correctement,
-          </TypographyLegacy>
-          <TypographyLegacy variant="caption" style={{
-            textDecorationLine: 'underline'
-          }} onPress={() => setHTMLCleanupEnabled(!HTMLCleanupEnabled)}>
-            {HTMLCleanupEnabled ? "désactiver" : "activer"} le formattage automatique
-          </TypographyLegacy>
-        </Stack>
+        {!surveyRef && (hasVisualHtml || Boolean(news.content?.trim())) && (
+          <Stack gap={0} style={{ opacity: 0.4 }}>
+            <TypographyLegacy variant="caption">
+              Si cette actualité ne s'affiche pas correctement,
+            </TypographyLegacy>
+            <TypographyLegacy
+              variant="caption"
+              style={{
+                textDecorationLine: "underline",
+              }}
+              onPress={() => setHTMLCleanupEnabled(!HTMLCleanupEnabled)}
+            >
+              {HTMLCleanupEnabled ? "désactiver" : "activer"} le formattage automatique
+            </TypographyLegacy>
+          </Stack>
+        )}
       </SafeHorizontalView>
-    </ScrollView >
+    </ScrollView>
   );
 };
 

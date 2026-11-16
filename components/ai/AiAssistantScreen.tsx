@@ -152,6 +152,8 @@ export default function AiAssistantScreen({
   onDeclinedOrDisabled,
 }: AiAssistantScreenProps) {
   const { colors } = useTheme();
+  const themeColors = colors as typeof colors & { item?: string };
+  const pillSurfaceColor = String(themeColors.item ?? colors.card);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const listRef = useRef<FlatList<AiChatMessage>>(null);
@@ -647,57 +649,61 @@ export default function AiAssistantScreen({
 
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingHorizontal: 14,
-          paddingTop: 8,
+          paddingHorizontal: 16,
+          paddingTop: 6,
           paddingBottom:
             embedded && !isModal && Platform.OS === "android"
-              ? 10
+              ? 12
               : Math.max(insets.bottom + (isModal ? 8 : 74), 14),
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          backgroundColor: colors.card,
         }}
       >
-        <TextInput
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder="Pose une question sur un devoir ou un cours..."
-          placeholderTextColor={String(colors.text) + "66"}
-          multiline
+        <View
           style={{
-            flex: 1,
-            minHeight: 40,
-            maxHeight: 110,
-            paddingHorizontal: 14,
-            paddingVertical: 9,
-            borderRadius: 20,
-            backgroundColor: colors.background,
-            color: colors.text,
-            borderWidth: 1,
-            borderColor: colors.border,
-          }}
-        />
-        <TouchableOpacity
-          disabled={isSending || !inputText.trim()}
-          onPress={() => void handleSend()}
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: inputText.trim() ? colors.primary : colors.border,
+            gap: 8,
+            minHeight: 46,
+            paddingLeft: 16,
+            paddingRight: 5,
+            paddingVertical: 5,
+            borderRadius: 26,
+            backgroundColor: pillSurfaceColor,
           }}
         >
-          {isSending ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Papicons name="ArrowUp" size={20} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
+          <TextInput
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Pose une question sur un devoir ou un cours..."
+            placeholderTextColor={String(colors.text) + "66"}
+            multiline
+            style={{
+              flex: 1,
+              minHeight: 34,
+              maxHeight: 110,
+              paddingVertical: 6,
+              color: colors.text,
+              fontSize: 15,
+            }}
+          />
+          <TouchableOpacity
+            disabled={isSending || !inputText.trim()}
+            onPress={() => void handleSend()}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: inputText.trim() ? colors.primary : String(colors.text) + "1F",
+            }}
+          >
+            {isSending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Papicons name="ArrowUp" size={18} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );

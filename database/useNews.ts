@@ -46,7 +46,7 @@ export async function getNewsById(id: string): Promise<SharedNews | undefined> {
   try {
     const { getManager } = await import("@/services/shared");
     const freshNews = await getManager()?.getNews();
-    return freshNews?.find(item => getNewsRouteId(item) === id) ?? cachedNews;
+    return freshNews?.find(item => getNewsRouteId(item) === id || item.id === id) ?? cachedNews;
   } catch (error) {
     warn(`Unable to refresh news ${id}: ${String(error)}`);
     return cachedNews;

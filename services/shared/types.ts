@@ -89,6 +89,7 @@ export interface SchoolServicePlugin {
   getWeeklyTimetable?: (weekNumber: number, date: Date) => Promise<CourseDay[]>;
   sendMessageInChat?: (chat: Chat, content: string) => Promise<void>;
   setNewsAsAcknowledged?: (news: News) => Promise<News>;
+  submitNewsSurvey?: (news: News) => Promise<News>;
   setHomeworkCompletion?: (
     homework: Homework,
     state?: boolean

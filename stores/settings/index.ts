@@ -169,6 +169,8 @@ const defaultPersonalization: Personalization = {
   aiCookiesAccepted: false,
   aiProvider: "gemini",
   aiModel: "gemini-2.5-flash",
+  funModeEnabled: false,
+  funModeOpeningStyle: "envelope",
 };
 
 export const useSettingsStore = create<SettingsStorage>()(

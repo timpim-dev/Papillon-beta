@@ -83,10 +83,21 @@ export async function fetchPronoteChatMessages(
   const studentName = session.user.resources[0]?.name ?? session.user.name;
 
   return (messages.sents ?? []).map((message) => {
+    const baseContent = typeof message.content === "string" ? message.content : "";
+    const transferredFallback =
+      !baseContent.trim() && Array.isArray(message.transferredMessages) && message.transferredMessages.length > 0
+        ? message.transferredMessages
+            .map(tm => {
+              const sender = tm.author?.name ? `${tm.author.name} : ` : "";
+              return `${sender}${tm.content ?? ""}`.trim();
+            })
+            .filter(Boolean)
+            .join("\n\n")
+        : "";
     return {
       id: message.id,
       subject: "",
-      content: message.content,
+      content: baseContent || transferredFallback,
       author: message.author?.name ?? studentName,
       date: message.creationDate,
       attachments: (message.files ?? []).map((attachment) => ({

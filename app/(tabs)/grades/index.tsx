@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Link, Stack, useTheme } from 'expo-router';
+import { Papicons } from '@getpapillon/papicons';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, Stack, useRouter, useTheme } from 'expo-router';
 import { t } from 'i18next';
 import type { SFSymbol } from 'sf-symbols-typescript';
 
@@ -7,6 +8,7 @@ import { FlatList, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, 
 import i18n from '@/utils/i18n';
 import { useLoadErrorAlert } from '@/hooks/useLoadErrorAlert';
 import { useSettingsStore } from '@/stores/settings';
+import { isGradeGachaOpened, subscribeGradeGachaUpdates } from '@/utils/fun/gradeGacha';
 import { allowAllAuthRetries } from '@/services/auth/coordinator';
 import { getGradeDisplayScale, formatScoreForDisplay, formatGradeScoreForDisplay } from '@/utils/grades/scale';
 import { getPeriodName, getPeriodNumber, isPeriodWithNumber } from '@/utils/services/periods';
@@ -67,7 +69,17 @@ const sortSubjects = (subjects: Subject[], method: SortMethod): Subject[] => {
 };
 
 const GradesView = () => {
+  const router = useRouter();
   const displayScale = getGradeDisplayScale(useSettingsStore(state => state.personalization.gradesDisplayScale));
+  const funModeEnabled = useSettingsStore(state => state.personalization.funModeEnabled ?? false);
+  const openingStyle = useSettingsStore(state => state.personalization.funModeOpeningStyle ?? "envelope");
+  const [, setGachaTick] = useState(0);
+
+  useEffect(() => {
+    if (!funModeEnabled) return;
+    return subscribeGradeGachaUpdates(() => setGachaTick(x => x + 1));
+  }, [funModeEnabled]);
+
   const theme = useTheme();
   const resize = useResizable();
   const { width: screenWidth } = useWindowDimensions();
@@ -255,6 +267,61 @@ const GradesView = () => {
                   <Averages history={history} realAverage={isAverageServiceProvided ? averages.student?.value : undefined} color={theme.colors.primary} displayScale={displayScale} />
                 </SafeHorizontalView>
 
+                {funModeEnabled && (() => {
+                  const unopenedGrades = subjects
+                    .flatMap(s => s.grades ?? [])
+                    .filter(g => !isGradeGachaOpened(g.id))
+                    .sort((a, b) => (b.givenAt?.getTime() ?? 0) - (a.givenAt?.getTime() ?? 0));
+                  if (unopenedGrades.length === 0) return null;
+                  const openBatch = () => {
+                    const first = unopenedGrades[0];
+                    if (first) {
+                      router.push({ pathname: "/(tabs)/grades/[id]", params: { id: first.id } });
+                    }
+                  };
+                  const rowBackground = (theme.colors as typeof theme.colors & { item?: string }).item ?? theme.colors.card;
+                  return (
+                    <SafeHorizontalView base={16}>
+                      <Pressable
+                        onPress={openBatch}
+                        style={({ pressed }) => ({
+                          opacity: pressed ? 0.8 : 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: rowBackground,
+                          borderRadius: 20,
+                          paddingHorizontal: 16,
+                          paddingVertical: 14,
+                          gap: 12,
+                        })}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                          {openingStyle === "gift" ? (
+                            <Papicons name="Archive" size={22} color={String(theme.colors.primary)} />
+                          ) : (
+                            <Papicons name="Mail" size={22} color={String(theme.colors.primary)} />
+                          )}
+                          <View style={{ flex: 1, gap: 1 }}>
+                            <Typography variant="title" weight="semibold">
+                              {unopenedGrades.length === 1 ? "1 note à ouvrir" : `${unopenedGrades.length} notes à ouvrir`}
+                            </Typography>
+                            <Typography variant="subtitle" color="textSecondary" numberOfLines={1}>
+                              {unopenedGrades.length === 1 ? "Appuie pour révéler la note" : "Enchaîne les ouvertures et vois le récap"}
+                            </Typography>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Typography variant="title" weight="semibold" style={{ color: String(theme.colors.primary) }}>
+                            Ouvrir
+                          </Typography>
+                          <Papicons name="ArrowRight" size={16} color={String(theme.colors.primary)} />
+                        </View>
+                      </Pressable>
+                    </SafeHorizontalView>
+                  );
+                })()}
+
                 <FlatList
                   data={recentGrades}
                   renderItem={({ item: grade }) => (
@@ -319,6 +386,7 @@ const GradesView = () => {
                 const formattedScore = isUsable
                   ? formatScoreForDisplay(score!.value, grade.outOf?.value ?? 20, displayScale)
                   : undefined;
+                const isMysteryConcealed = funModeEnabled && !isGradeGachaOpened(grade.id);
 
                 return (
                   <List.Item
@@ -340,16 +408,35 @@ const GradesView = () => {
                     </View>
 
                     <List.Trailing>
-                      <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 1 }}>
-                        <Typography weight='semibold' variant="h4">
-                          {formattedScore ? formattedScore.value.toFixed(2) : (score?.status ?? 'N/A')}
-                        </Typography>
-                        {formattedScore && formattedScore.denominator && (
-                          <Typography variant="subtitle" color="textSecondary">
-                            {formattedScore.denominator}
+                      {isMysteryConcealed ? (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                        >
+                          {openingStyle === "gift" ? (
+                            <Papicons name="Archive" size={16} color={String(theme.colors.primary)} />
+                          ) : (
+                            <Papicons name="Mail" size={16} color={String(theme.colors.primary)} />
+                          )}
+                          <Typography weight='semibold' variant="subtitle" style={{ color: String(theme.colors.primary) }}>
+                            À ouvrir
                           </Typography>
-                        )}
-                      </View>
+                        </View>
+                      ) : (
+                        <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 1 }}>
+                          <Typography weight='semibold' variant="h4">
+                            {formattedScore ? formattedScore.value.toFixed(2) : (score?.status ?? 'N/A')}
+                          </Typography>
+                          {formattedScore && formattedScore.denominator && (
+                            <Typography variant="subtitle" color="textSecondary">
+                              {formattedScore.denominator}
+                            </Typography>
+                          )}
+                        </View>
+                      )}
                     </List.Trailing>
                   </List.Item>
                 );

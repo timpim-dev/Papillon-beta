@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
+  build-android:
     if: github.repository == 'timpim-dev/Papillon-beta'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -50,7 +50,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Create secrets.json
         env:
@@ -105,6 +105,103 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk release-apks/papillon-plus-phone.apk
           cp native/wear/build/outputs/apk/release/wear-release.apk release-apks/papillon-plus-wear.apk
 
+      - name: Upload Android APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android-apks
+          path: release-apks/*.apk
+
+  build-ios:
+    if: github.repository == 'timpim-dev/Papillon-beta'
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Ensure CocoaPods is available
+        run: command -v pod >/dev/null || brew install cocoapods
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Create secrets.json
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+        run: |
+          jq -n \
+            --arg api_key "$POSTHOG_API_KEY" \
+            --arg host "$POSTHOG_HOST" \
+            '{POSTHOG_API_KEY: $api_key, POSTHOG_HOST: $host}' > secrets.json
+
+      - name: Prebuild iOS
+        run: bunx expo prebuild --platform ios --clean
+
+      - name: Install CocoaPods dependencies
+        run: cd ios && pod install
+
+      - name: Build Unsigned iOS App
+        run: |
+          set -o pipefail
+          cd ios
+          xcodebuild \
+            -workspace Papillon.xcworkspace \
+            -scheme Papillon \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+
+      - name: Package Unsigned IPA
+        run: |
+          mkdir -p release-ipa Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/Papillon.app Payload/Papillon.app
+          zip -qry release-ipa/papillon-plus-ios-unsigned.ipa Payload
+
+      - name: Upload Unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ios-ipa
+          path: release-ipa/papillon-plus-ios-unsigned.ipa
+
+  publish-release:
+    if: github.repository == 'timpim-dev/Papillon-beta'
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Android APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: release-android-apks
+          path: release-assets
+
+      - name: Download Unsigned IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: release-ios-ipa
+          path: release-assets
+
       - name: Determine release tag
         id: meta
         run: |
@@ -126,9 +223,11 @@ jobs:
           name: Papillon + ${{ steps.meta.outputs.tag }}
           make_latest: true
           files: |
-            release-apks/papillon-plus-phone.apk
-            release-apks/papillon-plus-wear.apk
+            release-assets/papillon-plus-phone.apk
+            release-assets/papillon-plus-wear.apk
+            release-assets/papillon-plus-ios-unsigned.ipa
           body: |
             ## Papillon + ${{ steps.meta.outputs.tag }}
             - **Téléphone Android** : `papillon-plus-phone.apk`
             - **Montre Wear OS** : `papillon-plus-wear.apk` (installable directement depuis Paramètres → Montre & Mises à jour dans Papillon +)
+            - **iPhone / iPad (iOS)** : `papillon-plus-ios-unsigned.ipa` (installable avec SideStore / AltStore / Sideloadly)

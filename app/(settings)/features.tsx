@@ -1,5 +1,5 @@
 import { Papicons } from "@getpapillon/papicons";
-import { Platform, View } from "react-native";
+import { Alert, Platform, View } from "react-native";
 
 import { useSettingsStore } from "@/stores/settings";
 import List from "@/ui/new/List";
@@ -7,12 +7,21 @@ import Typography from "@/ui/new/Typography";
 import NativeSwitch from "@/ui/native/NativeSwitch";
 import { useTranslation } from "react-i18next";
 import Icon from "@/ui/components/Icon";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getGradeDisplayScale } from "@/utils/grades/scale";
 import Picker from "@/ui/components/Picker";
 import { useTheme } from "expo-router/react-navigation";
 import * as PapillonKit from "@getpapillon/papillonkit";
 import { requestNotificationPermission } from "@/utils/notifications/notificationsSetup";
+import {
+  FunOpeningStyle,
+  GACHA_RARITIES,
+  GACHA_TIER_ORDER,
+  getGachaCollectionStats,
+  getOpenedGradeGachaCount,
+  resetOpenedGradeGachas,
+  subscribeGradeGachaUpdates,
+} from "@/utils/fun/gradeGacha";
 
 export default function SettingsFeatures() {
   const { t } = useTranslation();
@@ -31,7 +40,17 @@ export default function SettingsFeatures() {
   const homeworkDailyDigestEnabled = settingsStore.homeworkDailyDigestEnabled ?? true;
   const communicationNotificationsEnabled = settingsStore.communicationNotificationsEnabled ?? true;
   const newsNotificationsEnabled = settingsStore.newsNotificationsEnabled ?? true;
+  const funModeEnabled = settingsStore.funModeEnabled ?? false;
+  const funModeOpeningStyle: FunOpeningStyle = settingsStore.funModeOpeningStyle ?? "envelope";
   const selectedGradeScale = getGradeDisplayScale(settingsStore.gradesDisplayScale);
+  const [, setGachaTick] = useState(0);
+
+  useEffect(() => {
+    return subscribeGradeGachaUpdates(() => setGachaTick(t => t + 1));
+  }, []);
+
+  const openedDropCount = getOpenedGradeGachaCount();
+  const dropStats = getGachaCollectionStats();
 
   const reminderTimeOptions = useMemo(
     () => [
@@ -370,6 +389,116 @@ export default function SettingsFeatures() {
             </View>
           </List.Trailing>
         </List.Item>
+      </List.Section>
+
+      <List.Section>
+        <List.SectionTitle>
+          <List.Label>Mode Fun</List.Label>
+        </List.SectionTitle>
+
+        <List.Item>
+          <List.Leading>
+            <Icon>
+              <Papicons name={"Sparkles"} />
+            </Icon>
+          </List.Leading>
+          <Typography variant="body2" color="primary">{t("Global_Experimental")}</Typography>
+          <Typography variant="title">Ouverture gacha des notes</Typography>
+          <Typography color="textSecondary" numberOfLines={2}>
+            Masque les nouvelles notes et révèle-les avec animation et raretés selon ta note sur 20.
+          </Typography>
+          <List.Trailing>
+            <NativeSwitch
+              value={funModeEnabled}
+              onValueChange={value => {
+                mutateProperty("personalization", {
+                  funModeEnabled: value,
+                });
+              }}
+            />
+          </List.Trailing>
+        </List.Item>
+
+        {funModeEnabled && (
+          <>
+            <List.Item>
+              <List.Leading>
+                <Icon>
+                  <Papicons name={"Mail"} />
+                </Icon>
+              </List.Leading>
+              <Typography variant="title">Style d&apos;ouverture</Typography>
+              <Typography color="textSecondary" numberOfLines={2}>
+                Choisis l&apos;animation affichée à l&apos;ouverture d&apos;une note.
+              </Typography>
+              <List.Trailing>
+                <View style={{ width: 120, alignItems: "flex-end" }}>
+                  <Picker
+                    options={["Enveloppe", "Cadeau"]}
+                    selectedIndex={funModeOpeningStyle === "gift" ? 1 : 0}
+                    onValueChange={index => {
+                      mutateProperty("personalization", {
+                        funModeOpeningStyle: index === 1 ? "gift" : "envelope",
+                      });
+                    }}
+                  />
+                </View>
+              </List.Trailing>
+            </List.Item>
+
+            <List.Item>
+              <List.Leading>
+                <Icon>
+                  <Papicons name={"Crown"} />
+                </Icon>
+              </List.Leading>
+              <Typography variant="title">Collection de tirages ({openedDropCount})</Typography>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                {GACHA_TIER_ORDER.map(tier => {
+                  const cfg = GACHA_RARITIES[tier];
+                  const count = dropStats[tier] ?? 0;
+                  return (
+                    <View
+                      key={tier}
+                      style={{
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 999,
+                        backgroundColor: `${cfg.color}1C`,
+                        borderWidth: 1,
+                        borderColor: `${cfg.color}50`,
+                      }}
+                    >
+                      <Typography variant="caption" weight="semibold" style={{ color: cfg.color }}>
+                        {cfg.label} : {count}
+                      </Typography>
+                    </View>
+                  );
+                })}
+              </View>
+            </List.Item>
+
+            <List.Item
+              onPress={() => {
+                resetOpenedGradeGachas();
+                Alert.alert(
+                  "Notes ré-emballées",
+                  "Toutes tes notes sont à nouveau masquées et prêtes à être ouvertes."
+                );
+              }}
+            >
+              <List.Leading>
+                <Icon>
+                  <Papicons name={"Star"} />
+                </Icon>
+              </List.Leading>
+              <Typography variant="title">Ré-emballer toutes les notes</Typography>
+              <Typography color="textSecondary" numberOfLines={2}>
+                Remet toutes tes notes à ouvrir sans toucher aux vraies notes.
+              </Typography>
+            </List.Item>
+          </>
+        )}
       </List.Section>
 
     </List>

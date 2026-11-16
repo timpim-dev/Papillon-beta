@@ -451,6 +451,17 @@ export class AccountManager {
     );
   }
 
+  async submitNewsSurvey(news: News): Promise<News> {
+    return await this.fetchData(
+      Capabilities.NEWS,
+      async client =>
+        client.submitNewsSurvey
+          ? await client.submitNewsSurvey(news)
+          : news,
+      { multiple: false, clientId: news.createdByAccount }
+    );
+  }
+
   async setHomeworkCompletion(
     homework: Homework,
     state?: boolean
@@ -604,9 +615,19 @@ export class AccountManager {
     );
   }
 
+  hasReadyClients(capability?: Capabilities): boolean {
+    if (capability !== undefined) {
+      return this.getAvailableClients(capability).length > 0;
+    }
+    return Object.keys(this.clients).length > 0;
+  }
+
   private async hasInternet(): Promise<boolean> {
     const networkState = await Network.getNetworkStateAsync();
-    return networkState.isInternetReachable ?? false;
+    if (networkState.isInternetReachable === true) {
+      return true;
+    }
+    return Boolean(networkState.isConnected) && networkState.isInternetReachable !== false;
   }
 
   private async fetchData<T>(

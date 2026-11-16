@@ -3,9 +3,11 @@ import { useHeaderHeight, useTheme } from "expo-router/react-navigation";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { t } from "i18next";
 import React, { useCallback, useEffect, useState } from "react";
-import { Platform, View } from "react-native";
+import { Modal, Platform, Pressable, View } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
+import { initialWindowMetrics, SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GachaQueueItem, GradeGachaOverlay } from "@/components/fun/GradeGachaOverlay";
 import ModalOverhead, { ModalOverHeadScore } from '@/components/ModalOverhead';
 import ActivityIndicator from "@/ui/components/ActivityIndicator";
 import { getManager } from "@/services/shared";
@@ -16,7 +18,6 @@ import Stack from "@/ui/components/Stack";
 import TypographyLegacy from "@/ui/components/Typography";
 import adjust from '@/utils/adjustColor';
 import { colorCheck } from '@/utils/colorCheck';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import List from '@/ui/new/List';
 import Typography from '@/ui/new/Typography';
 import { useSettingsStore } from '@/stores/settings';
@@ -30,6 +31,7 @@ import { getSubjectName } from "@/utils/subjects/name";
 import { warn } from "@/utils/logger/logger";
 import SafeHorizontalView from "@/ui/components/SafeHorizontalView";
 import { formatAttachmentTitle, openAttachmentViewer } from "@/utils/attachments/attachmentViewer";
+import { evaluateGradeGacha, isGradeGachaOpened } from "@/utils/fun/gradeGacha";
 import { getAttachmentIcon } from "@/utils/news/getAttachmentIcon";
 
 interface SubjectInfo {
@@ -97,6 +99,10 @@ export default function GradesModal() {
   const [loading, setLoading] = useState(true);
   const displayScale = getGradeDisplayScale(useSettingsStore(state => state.personalization.gradesDisplayScale));
   const displayScaleMax = getDisplayScaleMax(displayScale);
+  const funModeEnabled = useSettingsStore(state => state.personalization.funModeEnabled ?? false);
+  const [showGacha, setShowGacha] = useState(false);
+  const [gachaQueue, setGachaQueue] = useState<GachaQueueItem[]>([]);
+  const [gachaSessionKey, setGachaSessionKey] = useState(0);
   const insets = useSafeAreaInsets();
   const finalHeaderHeight = Platform.select({
     android: insets.top + 32,
@@ -139,11 +145,39 @@ export default function GradesModal() {
               candidateGrade => candidateGrade.id === id
             );
 
-            if (matchingGrade) {
+            if (matchingGrade && matchingSubject) {
               if (!cancelled) {
                 setGrade(matchingGrade);
                 setSubject(matchingSubject);
                 setSubjects(periodSubjects);
+                if (funModeEnabled && !isGradeGachaOpened(matchingGrade.id)) {
+                  const firstItem: GachaQueueItem = {
+                    grade: matchingGrade,
+                    subject: matchingSubject,
+                    subjectName: getSubjectName(matchingSubject.name),
+                    subjectEmoji: getSubjectEmoji(matchingSubject.name),
+                  };
+                  const others: GachaQueueItem[] = periodSubjects
+                    .flatMap(subj =>
+                      (subj.grades ?? [])
+                        .filter(
+                          cand => cand.id !== matchingGrade.id && !isGradeGachaOpened(cand.id)
+                        )
+                        .map(cand => ({
+                          grade: cand,
+                          subject: subj,
+                          subjectName: getSubjectName(subj.name),
+                          subjectEmoji: getSubjectEmoji(subj.name),
+                        }))
+                    )
+                    .sort(
+                      (a, b) =>
+                        (b.grade.givenAt?.getTime() ?? 0) - (a.grade.givenAt?.getTime() ?? 0)
+                    );
+                  setGachaQueue([firstItem, ...others]);
+                  setGachaSessionKey(prev => prev + 1);
+                  setShowGacha(true);
+                }
               }
               return;
             }
@@ -162,7 +196,7 @@ export default function GradesModal() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [funModeEnabled, id]);
 
   const getSubjectById = useCallback(
     (subjectId: string) => subjects.find(candidate => candidate.id === subjectId),
@@ -296,6 +330,33 @@ export default function GradesModal() {
                 is_outlined={true}
               />
             )}
+            {funModeEnabled && (() => {
+              const gachaEval = evaluateGradeGacha(grade);
+              return (
+                <Pressable
+                  onPress={() => {
+                    setGachaQueue([
+                      {
+                        grade,
+                        subject,
+                        subjectName: subjectInfo.name,
+                        subjectEmoji: subjectInfo.emoji,
+                      },
+                    ]);
+                    setGachaSessionKey(prev => prev + 1);
+                    setShowGacha(true);
+                  }}
+                >
+                  <GradeBadge
+                    icon={gachaEval.config.iconName}
+                    label={`${gachaEval.config.label} · Rejouer`}
+                    color={gachaEval.config.color}
+                    theme={theme}
+                    is_outlined={false}
+                  />
+                </Pressable>
+              );
+            })()}
             {grade.studentScore && !grade.studentScore.disabled && (
               <Stack
                 card
@@ -572,6 +633,36 @@ export default function GradesModal() {
           </List.Section>
         )}
       </List>
+      {funModeEnabled && (
+        <Modal
+          visible={Boolean(showGacha && gachaQueue.length > 0)}
+          animationType="fade"
+          transparent={false}
+          statusBarTranslucent
+          navigationBarTranslucent
+          onRequestClose={() => setShowGacha(false)}
+        >
+          <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+            <GradeGachaOverlay
+              key={gachaSessionKey}
+              items={gachaQueue}
+              topInset={insets.top}
+              bottomInset={insets.bottom}
+              onComplete={() => setShowGacha(false)}
+              onBack={() => {
+                setShowGacha(false);
+                router.back();
+              }}
+              onSelectGrade={selectedId => {
+                setShowGacha(false);
+                if (selectedId !== id) {
+                  router.replace({ pathname: "/(tabs)/grades/[id]", params: { id: selectedId } });
+                }
+              }}
+            />
+          </SafeAreaProvider>
+        </Modal>
+      )}
     </>
   );
 }

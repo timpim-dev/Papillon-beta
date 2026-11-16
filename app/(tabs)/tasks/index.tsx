@@ -142,6 +142,36 @@ function TitleLayer({ offset, pageOffset, pageWidth, labels, slideDistance }: {
   );
 }
 
+// Each page positions itself relative to `offsetX` from origin `left: 0` so the
+// active page always has a `[0, pageWidth]` layout and visual box on Android,
+// keeping native vertical scroll hit-testing working on every week.
+function TaskPagerPage({
+  offsetX,
+  pageOffset,
+  pageWidth,
+  isActive,
+  children,
+}: {
+  offsetX: SharedValue<number>;
+  pageOffset: number;
+  pageWidth: number;
+  isActive: boolean;
+  children: React.ReactNode;
+}) {
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pageOffset * pageWidth - offsetX.value }],
+  }));
+
+  return (
+    <Reanimated.View
+      pointerEvents={isActive ? "auto" : "none"}
+      style={[styles.page, { width: pageWidth }, animStyle]}
+    >
+      {children}
+    </Reanimated.View>
+  );
+}
+
 const TasksView: React.FC = () => {
   const alert = useAlert();
   const { width: screenWidth } = useWindowDimensions();
@@ -285,10 +315,6 @@ const TasksView: React.FC = () => {
     [windowWidth, offsetX, gestureStartOffset, activationTranslation, pendingPage, commitPage]
   );
 
-  const rowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -offsetX.value }],
-  }));
-
   // Kept referentially stable so the memoized picker is not re-rendered, and
   // its SwiftUI host not re-fed props, on every week crossing.
   const weekPickerAnchor = useMemo(() => ({
@@ -392,20 +418,20 @@ const TasksView: React.FC = () => {
         </Stack.Toolbar>
       )}
 
-      <View style={styles.container}>
-        <GestureDetector gesture={panGesture}>
-          <Reanimated.View style={[styles.pager, rowStyle]}>
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.container}>
+          <View style={styles.pager}>
             {pageOffsets.map(offset => {
               const index = settledIndex + offset;
               const week = getWeekFromIndex(index);
 
               return (
-                <View
+                <TaskPagerPage
                   key={index}
-                  style={[
-                    styles.page,
-                    { width: windowWidth, left: (index - INITIAL_INDEX) * windowWidth },
-                  ]}
+                  offsetX={offsetX}
+                  pageOffset={index - INITIAL_INDEX}
+                  pageWidth={windowWidth}
+                  isActive={index === settledIndex}
                 >
                   <View style={{ flex: 1, backgroundColor: colors.overground }}>
                     <TasksWeekPage
@@ -422,12 +448,12 @@ const TasksView: React.FC = () => {
                       hasError={hasHomeworkError}
                     />
                   </View>
-                </View>
+                </TaskPagerPage>
               );
             })}
-          </Reanimated.View>
-        </GestureDetector>
-      </View>
+          </View>
+        </View>
+      </GestureDetector>
 
       {/* Rendered last so the pager stays the screen's first child: the native
           header binds to the first scroll view it finds from there. Mounted
@@ -466,6 +492,7 @@ const styles = StyleSheet.create({
   page: {
     position: "absolute",
     top: 0,
+    left: 0,
     bottom: 0,
   },
   // Fixed size, so the header title view never re-measures when the labels swap

@@ -29,7 +29,11 @@ const isSafeToRetry = (e: unknown): boolean =>
   e instanceof BusyPageError ||
   e instanceof PageUnavailableError;
 
-const buildTokenParams = (stored: Auth, deviceUUID: string): TokenAuthenticationParams => {
+const buildTokenParams = (
+  stored: Auth,
+  deviceUUID: string,
+  includeNavigatorIdentifier = true
+): TokenAuthenticationParams => {
   const url = String(
     stored.additionals?.["url"] || stored.additionals?.["instanceURL"] || ""
   );
@@ -42,8 +46,13 @@ const buildTokenParams = (stored: Auth, deviceUUID: string): TokenAuthentication
     );
   }
 
+  const additionals = { ...(stored.additionals ?? {}) };
+  if (!includeNavigatorIdentifier) {
+    delete additionals["navigatorIdentifier"];
+  }
+
   return {
-    ...stored.additionals,
+    ...additionals,
     url,
     token,
     username,
@@ -73,14 +82,29 @@ export function refreshPronoteAccount(
     { rotatesCredential: true, classifyError: classifyPronoteError },
     async tracker => {
       let lastError: unknown;
+      let includeNavigatorIdentifier = true;
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        let authenticationSent = false;
         try {
-          return await loginWithStoredToken(tracker);
+          return await loginWithStoredToken(
+            tracker,
+            includeNavigatorIdentifier,
+            () => {
+              authenticationSent = true;
+            }
+          );
         } catch (e) {
           lastError = e;
-          if (!isSafeToRetry(e)) {
+          const retryBeforeTokenConsume =
+            !authenticationSent && classifyPronoteError(e) === "service_error";
+          if (!isSafeToRetry(e) && !retryBeforeTokenConsume) {
             throw e;
+          }
+          // If Identification failed with a ServerSideError before Authentification ran,
+          // dropping the stale navigatorIdentifier starts a clean handshake on retry.
+          if (retryBeforeTokenConsume) {
+            includeNavigatorIdentifier = false;
           }
           if (attempt < MAX_ATTEMPTS - 1) {
             await new Promise(r => setTimeout(r, RETRY_BASE_DELAY_MS * 4 ** attempt));
@@ -93,16 +117,23 @@ export function refreshPronoteAccount(
   );
 }
 
-async function loginWithStoredToken(tracker: AuthTracker): Promise<PronoteRefresh> {
+async function loginWithStoredToken(
+  tracker: AuthTracker,
+  includeNavigatorIdentifier: boolean,
+  onAuthSent: () => void
+): Promise<PronoteRefresh> {
   const handle = createSessionHandle(customFetcher);
   const stored = tracker.readCredentials();
   const deviceUUID = String(stored.additionals?.["deviceUUID"] || "");
-  const loginParams = buildTokenParams(stored, deviceUUID);
+  const loginParams = buildTokenParams(stored, deviceUUID, includeNavigatorIdentifier);
 
   try {
     const refresh = await loginToken(handle, loginParams, {
       onCredentialSent: () => tracker.credentialSent(stored),
-      onAuthenticationSent: () => tracker.awaitingNewCredential(),
+      onAuthenticationSent: () => {
+        onAuthSent();
+        tracker.awaitingNewCredential();
+      },
       // Saved before ParametresUtilisateur: if that request fails, the next
       // login still has a valid token.
       onTokenIssued: information => {

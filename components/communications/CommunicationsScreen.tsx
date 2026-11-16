@@ -6,11 +6,13 @@ import { Pressable, RefreshControl, ScrollView, TouchableOpacity, View } from "r
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AiAssistantScreen from "@/components/ai/AiAssistantScreen";
-import { getChatsFromCache } from "@/database/useChat";
+import { dedupeChats, getChatsFromCache } from "@/database/useChat";
 import { getNewsRouteId, useNews } from "@/database/useNews";
-import { getManager, subscribeManagerUpdate } from "@/services/shared";
+import { allowAllAuthRetries } from "@/services/auth/coordinator";
+import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/services/shared";
 import { Chat } from "@/services/shared/chat";
 import { News } from "@/services/shared/news";
+import { Capabilities } from "@/services/shared/types";
 import { useSettingsStore } from "@/stores/settings";
 import Avatar from "@/ui/components/Avatar";
 import ChipButton from "@/ui/components/ChipButton";
@@ -76,10 +78,14 @@ export interface CommunicationsScreenProps {
 }
 
 export default function CommunicationsScreen({ isModal = false }: CommunicationsScreenProps) {
-  const { colors } = useTheme();
+  const theme = useTheme();
+  const colors = theme.colors as typeof theme.colors & { item?: string };
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const aiAssistantEnabled = useSettingsStore(
+    state => state.personalization.aiAssistantEnabled !== false
+  );
   const notificationsEnabled = useSettingsStore(
     state => state.personalization.communicationNotificationsEnabled ?? true
   );
@@ -87,8 +93,15 @@ export default function CommunicationsScreen({ isModal = false }: Communications
     state => state.personalization.newsNotificationsEnabled ?? true
   );
 
+  const visibleSubTabs = useMemo(
+    () => (aiAssistantEnabled ? SUB_TABS : SUB_TABS.filter(item => item.key !== "ai")),
+    [aiAssistantEnabled]
+  );
+
   const initialTab: MessagesSubTab =
-    tab === "infos" || tab === "ai" || tab === "discussions" ? tab : "discussions";
+    tab === "infos" || tab === "discussions" || (tab === "ai" && aiAssistantEnabled)
+      ? tab
+      : "discussions";
   const [subTab, setSubTab] = useState<MessagesSubTab>(initialTab);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -101,15 +114,31 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   const dbNews = useNews(newsRefreshTick);
 
   useEffect(() => {
-    if (tab === "infos" || tab === "ai" || tab === "discussions") {
+    if (tab === "infos" || tab === "discussions" || (tab === "ai" && aiAssistantEnabled)) {
       setSubTab(tab);
     }
-  }, [tab]);
+  }, [aiAssistantEnabled, tab]);
 
-  const fetchNewsItems = useCallback(async () => {
+  useEffect(() => {
+    if (!aiAssistantEnabled && subTab === "ai") {
+      setSubTab("discussions");
+    }
+  }, [aiAssistantEnabled, subTab]);
+
+  const fetchNewsItems = useCallback(async (forceReconnect = false) => {
     setIsRefreshingNews(true);
     try {
-      const manager = getManager();
+      let manager = getManager(true);
+      if (forceReconnect || !manager?.hasReadyClients(Capabilities.NEWS)) {
+        if (forceReconnect) {
+          allowAllAuthRetries();
+        }
+        try {
+          manager = await initializeAccountManager(undefined, { force: forceReconnect });
+        } catch {
+          manager = getManager(true);
+        }
+      }
       if (manager) {
         const fetched = await manager.getNews();
         if (Array.isArray(fetched) && fetched.length > 0) {
@@ -137,10 +166,20 @@ export default function CommunicationsScreen({ isModal = false }: Communications
     }
   }, []);
 
-  const fetchChats = useCallback(async () => {
+  const fetchChats = useCallback(async (forceReconnect = false) => {
     setIsLoading(true);
     try {
-      const manager = getManager();
+      let manager = getManager(true);
+      if (forceReconnect || !manager?.hasReadyClients(Capabilities.CHAT_READ)) {
+        if (forceReconnect) {
+          allowAllAuthRetries();
+        }
+        try {
+          manager = await initializeAccountManager(undefined, { force: forceReconnect });
+        } catch {
+          manager = getManager(true);
+        }
+      }
       if (!manager) {
         await loadCached();
         return;
@@ -182,7 +221,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   );
 
   const sortedChats = useMemo(() => {
-    return [...chats].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return dedupeChats(chats).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [chats]);
 
   const filteredChats = useMemo(() => {
@@ -292,7 +331,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
           ) : (
             <ChipButton
               onPress={() => {
-                void fetchNewsItems();
+                void fetchNewsItems(true);
               }}
             >
               Actualiser
@@ -306,7 +345,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
             >
-              {SUB_TABS.map(tab => {
+              {visibleSubTabs.map(tab => {
                 const active = subTab === tab.key;
                 return (
                   <Pressable
@@ -316,9 +355,9 @@ export default function CommunicationsScreen({ isModal = false }: Communications
                       paddingHorizontal: 14,
                       paddingVertical: 8,
                       borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: active ? colors.primary : colors.border,
-                      backgroundColor: active ? colors.primary : colors.card,
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.item ?? colors.card,
                     }}
                   >
                     <Typography
@@ -368,7 +407,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
             <RefreshControl
               refreshing={isRefreshingNews}
               onRefresh={() => {
-                void fetchNewsItems();
+                void fetchNewsItems(true);
               }}
               progressViewOffset={headerHeight}
             />
@@ -477,7 +516,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
             <RefreshControl
               refreshing={isLoading}
               onRefresh={() => {
-                void fetchChats();
+                void fetchChats(true);
               }}
               progressViewOffset={headerHeight}
             />

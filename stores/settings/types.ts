@@ -122,4 +122,7 @@ export interface Personalization {
   aiProvider?: "gemini" | "groq" | "mistral" | "custom";
   aiModel?: string;
   aiCustomEndpoint?: string;
+  // Fun Mode (grade gacha reveal, off by default)
+  funModeEnabled?: boolean;
+  funModeOpeningStyle?: "envelope" | "gift";
 }

@@ -170,6 +170,37 @@ export const useHomeData = () => {
         });
       }
 
+      const buildRelinkButton = (serviceToRelink = error instanceof AuthenticationError || error instanceof ServiceUnavailableError ? error.service : undefined) => {
+        const instanceURL = serviceToRelink?.auth?.additionals?.["instanceURL"] ?? "";
+        if (!instanceURL || !serviceToRelink) return undefined;
+        return {
+          label: t("Home_Sync_Relink"),
+          showCancelButton: serviceToRelink.serviceId === Services.PRONOTE,
+          onPress: async () => {
+            const ownerAccount = useAccountStore.getState().accounts.find(acc =>
+              acc.services.some(s => s.id === serviceToRelink.id)
+            );
+
+            const authUrl = String(instanceURL);
+            const relinkParams = {
+              url: authUrl,
+              relinkAccountId: ownerAccount?.id,
+              relinkServiceId: serviceToRelink.id,
+              relinkDeviceUUID: String(serviceToRelink.auth?.additionals?.["deviceUUID"] ?? ""),
+            };
+
+            const instanceInfo = await instance(authUrl).catch(() => null);
+
+            return setTimeout(() => {
+              router.navigate({
+                pathname: "/(onboarding)/services/pronote/browser",
+                params: { ...relinkParams, school: instanceInfo?.name ?? "N/A" }
+              });
+            }, 200);
+          }
+        };
+      };
+
       if (error instanceof AuthenticationError) {
         const instanceURL = error?.service?.auth?.additionals?.["instanceURL"] ?? "";
 
@@ -179,32 +210,7 @@ export const useHomeData = () => {
           description: t(DISCONNECTED_DESCRIPTIONS[error.reason] ?? "Home_Sync_Disconnected_Expired"),
           icon: "UserCross",
           color: "#D60046",
-          customButton: instanceURL ? {
-            label: t("Home_Sync_Relink"),
-            showCancelButton: error.service.serviceId === Services.PRONOTE,
-            onPress: async () => {
-              const ownerAccount = useAccountStore.getState().accounts.find(acc =>
-                acc.services.some(s => s.id === error.service.id)
-              );
-
-              const authUrl = instanceURL;
-              const relinkParams = {
-                url: authUrl,
-                relinkAccountId: ownerAccount?.id,
-                relinkServiceId: error.service.id,
-                relinkDeviceUUID: String(error.service.auth?.additionals?.["deviceUUID"] ?? ""),
-              };
-
-              const instanceInfo = await instance(authUrl as string).catch(() => null);
-
-              return setTimeout(() => {
-                router.navigate({
-                  pathname: "/(onboarding)/services/pronote/browser",
-                  params: { ...relinkParams, school: instanceInfo?.name ?? "N/A" }
-                })
-              }, 200)
-            }
-          } : undefined,
+          customButton: buildRelinkButton(error.service),
           technical: error.message
         })
       } else if (error instanceof ServiceUnavailableError) {
@@ -216,6 +222,8 @@ export const useHomeData = () => {
           icon: "GlobeCross",
           color: "#FF8C00",
           withoutNavbar: true,
+          customButton: !suspended ? buildRelinkButton(error.service) : undefined,
+          technical: error.message,
         });
       } else if (!(error instanceof SecurityChallengeError)) {
         // Anything left is unexpected. Saying so beats a home screen that

@@ -19,7 +19,7 @@ import {
   setPronoteHomeworkAsDone,
   uploadPronoteHomeworkFile,
 } from "@/services/pronote/homework";
-import { fetchPronoteNews, setPronoteNewsAsAcknowledged } from "@/services/pronote/news";
+import { fetchPronoteNews, setPronoteNewsAsAcknowledged, submitPronoteNewsSurvey } from "@/services/pronote/news";
 import { refreshPronoteAccount } from "@/services/pronote/refresh";
 import { fetchPronoteCourseResources, fetchPronoteWeekTimetable } from "@/services/pronote/timetable";
 import { Attendance } from "@/services/shared/attendance";
@@ -174,6 +174,10 @@ export class Pronote implements SchoolServicePlugin {
 
   setNewsAsAcknowledged(news: News): Promise<News> {
     return this.withSession(session => setPronoteNewsAsAcknowledged(session, news));
+  }
+
+  submitNewsSurvey(news: News): Promise<News> {
+    return this.withSession(session => submitPronoteNewsSurvey(session, news));
   }
 
   setHomeworkCompletion(homework: Homework, state?: boolean): Promise<Homework> {
