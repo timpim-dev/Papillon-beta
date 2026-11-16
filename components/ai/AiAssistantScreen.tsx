@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import AiMarkdownText from "@/components/ai/AiMarkdownText";
 import { useSettingsStore } from "@/stores/settings";
 import ChipButton from "@/ui/components/ChipButton";
 import KeyboardAvoidingContainer, { useKeyboardVisible } from "@/ui/components/KeyboardAvoidingContainer";
@@ -809,12 +810,16 @@ export default function AiAssistantScreen({
                 borderColor: colors.border,
               }}
             >
-              <Typography
-                variant="body1"
-                style={{ color: isUser ? "#FFFFFF" : String(colors.text) }}
-              >
-                {item.content}
-              </Typography>
+              {isUser ? (
+                <Typography
+                  variant="body1"
+                  style={{ color: "#FFFFFF" }}
+                >
+                  {item.content}
+                </Typography>
+              ) : (
+                <AiMarkdownText text={item.content} />
+              )}
               {!isUser &&
                 item.flashcards?.map(card => <FlashcardCard key={card.id} card={card} />)}
               {!isUser &&
