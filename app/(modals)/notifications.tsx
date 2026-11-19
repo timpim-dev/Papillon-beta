@@ -42,7 +42,6 @@ export default function NotificationsModal() {
   const homeworkEnabled = personalization.homeworkRemindersEnabled ?? true;
   const digestEnabled = personalization.homeworkDailyDigestEnabled ?? true;
   const chatEnabled = personalization.communicationNotificationsEnabled ?? true;
-  const newsEnabled = personalization.newsNotificationsEnabled ?? true;
 
   return (
     <ScrollView
@@ -142,25 +141,6 @@ export default function NotificationsModal() {
                 onValueChange={async val => {
                   if (val) await requestNotificationPermission();
                   mutateProperty("personalization", { communicationNotificationsEnabled: val });
-                }}
-              />
-            </List.Trailing>
-          </List.Item>
-
-          <List.Item>
-            <List.Leading>
-              <Icon><Papicons name="Newspaper" /></Icon>
-            </List.Leading>
-            <Typography variant="title">Infos &amp; Sondages</Typography>
-            <Typography color="textSecondary" numberOfLines={2}>
-              Annonces et sondages de l&apos;établissement
-            </Typography>
-            <List.Trailing>
-              <NativeSwitch
-                value={newsEnabled}
-                onValueChange={async val => {
-                  if (val) await requestNotificationPermission();
-                  mutateProperty("personalization", { newsNotificationsEnabled: val });
                 }}
               />
             </List.Trailing>

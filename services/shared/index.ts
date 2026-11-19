@@ -27,13 +27,14 @@ import {
   addPeriodsToDatabase,
   getCachedPeriodGrades,
   getPeriodsFromCache,
+  pruneOrphanedGradesCache,
 } from "@/database/useGrades";
 import {
   addHomeworkToDatabase,
   getHomeworksFromCache,
 } from "@/database/useHomework";
 import { addKidToDatabase, getKidsFromCache } from "@/database/useKids";
-import { addNewsToDatabase, getNewsFromCache } from "@/database/useNews";
+import { addNewsToDatabase, getNewsFromCache, markNewsAsRead } from "@/database/useNews";
 import {
   addCourseDayToDatabase,
   getCoursesFromCache,
@@ -254,9 +255,16 @@ export class AccountManager {
 
   async getGradesForPeriod(
     period: Period,
-    clientId: string,
+    clientId?: string,
     kid?: Kid
   ): Promise<PeriodGrades> {
+    const effectiveClientId =
+      clientId ||
+      (period.createdByAccount && this.clients[period.createdByAccount]
+        ? period.createdByAccount
+        : undefined) ||
+      period.createdByAccount ||
+      "";
     return await this.fetchData(
       Capabilities.GRADES,
       async client =>
@@ -265,10 +273,10 @@ export class AccountManager {
           : error("Bad Implementation"),
       {
         multiple: false,
-        clientId,
-        fallback: async () => getCachedPeriodGrades(`${clientId}:${kid?.id ?? ""}:${period.name}`),
+        clientId: effectiveClientId,
+        fallback: async () => getCachedPeriodGrades(`${effectiveClientId}:${kid?.id ?? ""}:${period.name}`),
         saveToCache: async (data: PeriodGrades) => {
-          cachePeriodGrades(data, `${clientId}:${kid?.id ?? ""}:${period.name}`);
+          cachePeriodGrades(data, `${effectiveClientId}:${kid?.id ?? ""}:${period.name}`);
         },
       }
     );
@@ -441,18 +449,22 @@ export class AccountManager {
   }
 
   async setNewsAsDone(news: News): Promise<News> {
-    return await this.fetchData(
+    await markNewsAsRead(news).catch(() => undefined);
+    const updated = await this.fetchData(
       Capabilities.NEWS,
       async client =>
         client.setNewsAsAcknowledged
           ? await client.setNewsAsAcknowledged(news)
-          : news,
+          : { ...news, acknowledged: true },
       { multiple: false, clientId: news.createdByAccount }
     );
+    const acknowledgedItem = { ...news, ...updated, acknowledged: true };
+    await markNewsAsRead(acknowledgedItem).catch(() => undefined);
+    return acknowledgedItem;
   }
 
   async submitNewsSurvey(news: News): Promise<News> {
-    return await this.fetchData(
+    const updated = await this.fetchData(
       Capabilities.NEWS,
       async client =>
         client.submitNewsSurvey
@@ -460,6 +472,9 @@ export class AccountManager {
           : news,
       { multiple: false, clientId: news.createdByAccount }
     );
+    const acknowledgedItem = { ...news, ...updated, acknowledged: true };
+    await markNewsAsRead(acknowledgedItem).catch(() => undefined);
+    return acknowledgedItem;
   }
 
   async setHomeworkCompletion(
@@ -896,9 +911,11 @@ export const initializeAccountManager = async (
       throw error("Account not found for ID: " + targetId);
     }
 
-    pruneAuthStates(
-      useAccountStore.getState().accounts.flatMap(acc => acc.services.map(service => service.id))
-    );
+    const validServiceIds = useAccountStore
+      .getState()
+      .accounts.flatMap(acc => acc.services.map(service => service.id));
+    pruneAuthStates(validServiceIds);
+    void pruneOrphanedGradesCache(validServiceIds);
 
     let manager = globalManager;
     if (manager && manager.account.id === targetId) {

@@ -270,7 +270,7 @@ export const GradeGachaOverlay: React.FC<GradeGachaOverlayProps> = ({
 
   const recordCurrentAsOpened = useCallback(() => {
     if (!currentItem) return;
-    markGradeGachaOpened(currentItem.grade.id, evaluation.tier);
+    markGradeGachaOpened(currentItem.grade, evaluation.tier);
     setOpenedSession(prev => {
       if (prev.some(e => e.item.grade.id === currentItem.grade.id)) return prev;
       return [

@@ -68,7 +68,7 @@ describe("Home Tab widgets settings helpers", () => {
   it("uses per-account configuration when available and merges missing defaults", () => {
     const personalization: Partial<Personalization> = {
       homeWidgets: [
-        { id: "news", enabled: false },
+        { id: "grades_average", enabled: false },
         { id: "timetable", enabled: true },
       ],
       homeWidgetsByAccount: {
@@ -89,11 +89,10 @@ describe("Home Tab widgets settings helpers", () => {
       "tasks",
       "timetable",
       "grades_average",
-      "news",
     ]);
     expect(acc2Widgets.find(w => w.id === "latest_grades")?.enabled).toBe(true);
     expect(acc2Widgets.find(w => w.id === "tasks")?.enabled).toBe(false);
-    expect(acc2Widgets.find(w => w.id === "news")?.enabled).toBe(true);
+    expect(acc2Widgets.find(w => w.id === "grades_average")?.enabled).toBe(true);
   });
 
   it("falls back to global homeWidgets when the requested account has no override", () => {
@@ -114,7 +113,6 @@ describe("Home Tab widgets settings helpers", () => {
       "timetable",
       "grades_average",
       "latest_grades",
-      "news",
     ]);
     expect(acc1Widgets.find(w => w.id === "timetable")?.enabled).toBe(false);
   });

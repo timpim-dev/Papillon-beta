@@ -10,7 +10,6 @@ import { useSettingsStore } from "@/stores/settings";
 
 import {
   detectAndNotifyNewChats,
-  detectAndNotifyNewNews,
 } from "./communicationsNotifications";
 import { syncHomeworkReminders } from "./homeworkReminders";
 import {
@@ -71,8 +70,6 @@ export function useNotificationsSync(): void {
 
   const commNotificationsEnabled =
     personalization.communicationNotificationsEnabled ?? true;
-  const newsNotificationsEnabled =
-    personalization.newsNotificationsEnabled ?? true;
 
   const lastPollRef = useRef<number>(0);
 
@@ -101,18 +98,12 @@ export function useNotificationsSync(): void {
   }, [router]);
 
   useEffect(() => {
-    const anyEnabled =
-      reminderConfig.enabled || commNotificationsEnabled || newsNotificationsEnabled;
+    const anyEnabled = reminderConfig.enabled || commNotificationsEnabled;
     if (!account || !anyEnabled) {
       return;
     }
     void ensureNotificationReadyIfEnabled(anyEnabled);
-  }, [
-    account,
-    reminderConfig.enabled,
-    commNotificationsEnabled,
-    newsNotificationsEnabled,
-  ]);
+  }, [account, reminderConfig.enabled, commNotificationsEnabled]);
 
   useEffect(() => {
     if (!account) {
@@ -147,13 +138,6 @@ export function useNotificationsSync(): void {
       } catch {
         // Non-blocking background sync
       }
-
-      try {
-        const news = await manager.getNews();
-        await detectAndNotifyNewNews(news, newsNotificationsEnabled);
-      } catch {
-        // Non-blocking background sync
-      }
     };
 
     const unsubManager = subscribeManagerUpdate(() => {
@@ -178,5 +162,5 @@ export function useNotificationsSync(): void {
       unsubManager();
       appStateSub.remove();
     };
-  }, [account, commNotificationsEnabled, newsNotificationsEnabled]);
+  }, [account, commNotificationsEnabled]);
 }

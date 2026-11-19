@@ -8,7 +8,10 @@ import { BusIcon, HeartIcon, InfoIcon } from "lucide-react-native";
 import React, { useCallback, useMemo } from "react";
 import { Alert, Image, Platform, Pressable, View } from "react-native";
 
+import { clearCachedLiveNews } from "@/components/communications/liveNewsCache";
 import { ClearDatabaseForAccount } from "@/database/DatabaseProvider";
+import { clearHomeSyncCache } from "@/app/(tabs)/index/hooks/useHomeData";
+import { clearAuthState } from "@/services/auth/coordinator";
 import { useAccountStore } from "@/stores/account";
 import { useSettingsStore } from "@/stores/settings";
 import AnimatedPressable from "@/ui/components/AnimatedPressable";
@@ -59,15 +62,21 @@ export default function SettingsIndex() {
     return [firstName, lastName, level, establishment];
   }, [account]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     trackOptionalEvent("logged_out_of_account");
     const accounts = useAccountStore.getState().accounts;
     for (const account of accounts) {
+      for (const service of account.services ?? []) {
+        await ClearDatabaseForAccount(service.id).catch(() => undefined);
+        clearAuthState(service.id);
+      }
       useAccountStore.getState().removeAccount(account);
     }
+    clearCachedLiveNews();
+    clearHomeSyncCache();
     router.replace("/(onboarding)/welcome");
 
-  }, [account, accountStore, router]);
+  }, [router]);
 
   const MoreSettingsList = [
     {

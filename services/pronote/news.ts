@@ -13,13 +13,13 @@ import {
 import { News } from "@/services/shared/news";
 import { error } from "@/utils/logger/logger";
 
-export function readRawTextField(value: unknown): string {
+export function readRawTextField(value: unknown, depth = 0): string {
+  if (depth > 3) return "";
   if (typeof value === "string") {
     return value;
   }
   if (value && typeof value === "object" && "V" in value) {
-    const inner = (value as { V?: unknown }).V;
-    return typeof inner === "string" ? inner : "";
+    return readRawTextField((value as { V?: unknown }).V, depth + 1);
   }
   return "";
 }
@@ -89,7 +89,8 @@ export async function fetchPronoteNews(session: SessionHandle, accountId: string
           ? formatSurveyQuestionsHtml(infoQuestions)
           : "") ||
         readRawTextField(infoItem.question?.fullTitle) ||
-        readRawTextField(infoItem.question?.title);
+        readRawTextField(infoItem.question?.title) ||
+        (infoItem.title ?? "");
       rawAttachments = infoItem.attachments ?? infoItem.question?.attachments ?? [];
     }
 
@@ -121,10 +122,26 @@ export async function setPronoteNewsAsAcknowledged(
 ): Promise<News> {
   if (news.ref) {
     const refObj = news.ref as NewsInformation | NewsSurvey;
-    if (refObj.is === "survey") {
-      await newsRead(session, refObj, true);
-    } else {
-      await newsInformationAcknowledge(session, refObj);
+    try {
+      if (refObj.is === "survey") {
+        await newsRead(session, refObj, true);
+      } else {
+        await newsInformationAcknowledge(session, refObj);
+      }
+    } catch (err) {
+      // Rethrow session/auth errors so withSession can reconnect & retry cleanly
+      const name = err instanceof Error ? err.name : "";
+      if (
+        name === "SessionExpiredError" ||
+        name === "BadCredentialsError" ||
+        name === "AuthenticateError" ||
+        name === "AccessDeniedError" ||
+        name === "SuspendedIPError" ||
+        name === "RateLimitedError"
+      ) {
+        throw err;
+      }
+      error(`Failed to mark news as acknowledged remotely: ${String(err)}`, "setPronoteNewsAsAcknowledged");
     }
     return {
       ...news,
@@ -132,7 +149,10 @@ export async function setPronoteNewsAsAcknowledged(
     };
   }
 
-  throw error("Reference for news item is missing.", "setPronoteNewsAsAcknowledged");
+  return {
+    ...news,
+    acknowledged: true,
+  };
 }
 
 export async function submitPronoteNewsSurvey(
@@ -150,6 +170,6 @@ export async function submitPronoteNewsSurvey(
   return {
     ...news,
     acknowledged: true,
-    content: formatSurveyQuestionsHtml(refObj.questions ?? []),
+    content: formatSurveyQuestionsHtml(refObj.questions ?? []) || news.content,
   };
 }

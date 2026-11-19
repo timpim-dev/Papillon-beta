@@ -15,6 +15,15 @@ export function mapPeriodToShared(period: Period): SharedPeriod {
   }
 }
 
+function safeParseAttachment(raw?: string | null): Attachment {
+  if (!raw) return {} as Attachment;
+  try {
+    return JSON.parse(raw) as Attachment;
+  } catch {
+    return {} as Attachment;
+  }
+}
+
 export function mapGradeToShared(grade: Grade): SharedGrade {
   return {
     id: grade.gradeId,
@@ -22,8 +31,8 @@ export function mapGradeToShared(grade: Grade): SharedGrade {
     subjectId: grade.subjectId ?? "",
     description: grade.description,
     givenAt: new Date(grade.givenAt),
-    subjectFile: JSON.parse(grade.subjectFile ?? "") as Attachment,
-    correctionFile: JSON.parse(grade.correctionFile ?? "") as Attachment,
+    subjectFile: safeParseAttachment(grade.subjectFile),
+    correctionFile: safeParseAttachment(grade.correctionFile),
     bonus: grade.bonus,
     optional: grade.optional,
     outOf: grade.outOf,

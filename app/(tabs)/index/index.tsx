@@ -16,7 +16,6 @@ import {
   updateHomeworkIsDone,
   useHomeworkForWeeks,
 } from '@/database/useHomework';
-import { useNews } from '@/database/useNews';
 import { getManager } from '@/services/shared';
 import { Homework as SharedHomework } from '@/services/shared/homework';
 import { useAccountStore } from '@/stores/account';
@@ -43,7 +42,6 @@ import { useTimetableWidgetData } from './hooks/useTimetableWidgetData';
 import { useTimetableWidgetTitle } from './hooks/useTimetableWidgetTitle';
 import GradesWidget from './widgets/Grades';
 import LatestGradesWidget, { LatestGradeItem } from './widgets/LatestGrades';
-import NewsWidget from './widgets/News';
 import TasksWidget from './widgets/Tasks';
 import HomeTimeTableWidget from './widgets/timetable';
 
@@ -132,7 +130,7 @@ const HomeScreen = () => {
   const { courses } = useTimetableWidgetData();
   const timetableTitle = useTimetableWidgetTitle(courses);
 
-  const { currentPeriod } = usePeriodsData();
+  const { currentPeriod, refresh: refreshPeriods } = usePeriodsData();
   const { subjects, grades, history, averages, refresh: refreshGrades } = useGradesData(currentPeriod);
 
   const serviceIds = React.useMemo(
@@ -212,34 +210,24 @@ const HomeScreen = () => {
       .slice(0, 6);
   }, [subjects]);
 
-  // News widget data
-  const allNews = useNews(tasksRefresh);
-  const accountNews = React.useMemo(
-    () =>
-      allNews
-        .filter(item => serviceIds.includes(item.createdByAccount))
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
-    [allNews, serviceIds]
-  );
-
   const [refreshing, setRefreshing] = React.useState(false);
   const handleRefresh = React.useCallback(async () => {
     setRefreshing(true);
     try {
       await refresh();
+      await refreshPeriods();
       await refreshGrades();
       const manager = getManager();
       if (manager) {
         await Promise.allSettled([
           ...taskWeeks.map(week => manager.getHomeworks(week)),
-          manager.getNews(),
         ]);
       }
       setTasksRefresh(prev => prev + 1);
     } finally {
       setRefreshing(false);
     }
-  }, [refresh, refreshGrades, taskWeeks]);
+  }, [refresh, refreshGrades, refreshPeriods, taskWeeks]);
 
   const gradesWidgetHidden = grades.length === 0;
 
@@ -256,7 +244,6 @@ const HomeScreen = () => {
     () => <LatestGradesWidget grades={recentGrades} />,
     [recentGrades]
   );
-  const renderNews = React.useCallback(() => <NewsWidget news={accountNews} />, [accountNews]);
 
   const widgetRegistry = React.useMemo<Map<HomeWidgetId, HomeWidgetItem>>(
     () =>
@@ -305,26 +292,13 @@ const HomeScreen = () => {
             render: renderLatestGrades,
           },
         ],
-        [
-          "news",
-          {
-            id: "news",
-            icon: <Papicons name={"Newspaper"} />,
-            title: t("Home_Widget_News"),
-            redirect: "(features)/(news)/news",
-            hidden: accountNews.length === 0,
-            render: renderNews,
-          },
-        ],
       ]),
     [
-      accountNews.length,
       courses.length,
       gradesWidgetHidden,
       recentGrades.length,
       renderGrades,
       renderLatestGrades,
-      renderNews,
       renderTasks,
       renderTimeTable,
       timetableTitle,

@@ -13,7 +13,7 @@ import { useHomeHeaderData } from '../hooks/useHomeHeaderData';
 const HomeHeader = () => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { availableCanteenCards, attendancesPeriods, attendances, absencesCount, todayMenuMainDish, news } = useHomeHeaderData();
+  const { availableCanteenCards, attendancesPeriods, attendances, absencesCount, todayMenuMainDish } = useHomeHeaderData();
   const currentAttendancePeriod = attendancesPeriods.length > 0
     ? getCurrentPeriod(attendancesPeriods)
     : undefined;
@@ -52,15 +52,7 @@ const HomeHeader = () => {
         attendances: JSON.stringify(attendances),
       },
     },
-    {
-      title: t("Tab_News"),
-      image: require("@/assets/shaded_icons/actu.png"),
-      icon: "newspaper",
-      color: "#0080ff",
-      description: news[0]?.title ?? t("News_Empty_Title"),
-      route: "/(features)/(news)/news"
-    },
-  ], [availableCanteenCards, absencesCount, todayMenuMainDish, news, currentAttendancePeriod, attendancesPeriods, attendances, t]);
+  ], [availableCanteenCards, absencesCount, todayMenuMainDish, currentAttendancePeriod, attendancesPeriods, attendances, t]);
 
   return (
     <View style={{ paddingHorizontal: 0, width: "100%", flex: 1, overflow: "visible" }}>

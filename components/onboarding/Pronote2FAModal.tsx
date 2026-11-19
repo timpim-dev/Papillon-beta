@@ -4,6 +4,7 @@ import * as Device from "expo-device"
 import { router } from "expo-router";
 import {
   finishLoginManually,
+  securityCheckPIN,
   SecurityError,
   securitySave,
   securitySource,
@@ -15,6 +16,8 @@ import { FlatList, View } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import Reanimated from "react-native-reanimated"
 
+import { clearAuthState } from "@/services/auth/coordinator";
+import { initializeAccountManager } from "@/services/shared";
 import { useAccountStore } from "@/stores/account";
 import { Services } from "@/stores/account/types";
 import { useAlert } from "@/ui/components/AlertProvider";
@@ -39,12 +42,22 @@ export function Pronote2FAModal({ doubleAuthSession, doubleAuthError, setChallen
 
       const error = doubleAuthError
       const session = doubleAuthSession
-      const deviceName = Device.deviceName
-      const source = "Papillon sur " + deviceName
-      await securitySource(session, source.length > 30 ? "Papillon" : "Papillon sur " + deviceName)
+      const deviceName = Device.deviceName || "Papillon"
+      const source = ("Papillon sur " + deviceName).length > 30 ? "Papillon" : "Papillon sur " + deviceName
+
+      if (error.handle.shouldEnterPIN && !error.handle.shouldCustomDoubleAuth) {
+        const pinValid = await securityCheckPIN(session, pinCode)
+        if (!pinValid) {
+          throw new Error("Code PIN invalide")
+        }
+      }
+
+      if (error.handle.shouldEnterSource || error.handle.shouldEnterPIN || error.handle.shouldCustomDoubleAuth) {
+        await securitySource(session, source)
+      }
       await securitySave(session, error.handle, {
         pin: pinCode,
-        deviceName: source.length > 30 ? "Papillon" : "Papillon sur " + deviceName || "Papillon"
+        deviceName: source
       })
 
       const context = error.handle.context;
@@ -58,10 +71,20 @@ export function Pronote2FAModal({ doubleAuthSession, doubleAuthError, setChallen
       const schoolName = session.user.resources[0].establishmentName
       const className = session.user.resources[0].className
 
+      const store = useAccountStore.getState()
+      const existingService =
+        relinkAccountId && relinkServiceId
+          ? store.accounts
+            .find(acc => acc.id === relinkAccountId)
+            ?.services.find(srv => srv.id === relinkServiceId)
+          : undefined;
+
       const auth = {
         accessToken: refresh.token,
         refreshToken: refresh.token,
         additionals: {
+          ...(existingService?.auth?.additionals ?? {}),
+          ...refresh,
           instanceURL: refresh.url,
           kind: refresh.kind,
           username: refresh.username,
@@ -69,11 +92,11 @@ export function Pronote2FAModal({ doubleAuthSession, doubleAuthError, setChallen
         }
       }
 
-      const store = useAccountStore.getState()
-
       if (relinkServiceId && relinkAccountId) {
         store.updateServiceAuthData(relinkServiceId, auth)
         store.setLastUsedAccount(relinkAccountId)
+        clearAuthState(relinkServiceId)
+        void initializeAccountManager(relinkAccountId, { force: true }).catch(() => undefined)
         setChallengeModalVisible(false)
         return router.dismissTo("/");
       }
@@ -97,13 +120,8 @@ export function Pronote2FAModal({ doubleAuthSession, doubleAuthError, setChallen
 
       store.addAccount(account)
       store.setLastUsedAccount(deviceId)
-
-      router.push({
-        pathname: "../end/color",
-        params: {
-          accountId: deviceId
-        }
-      });
+      setChallengeModalVisible(false)
+      return router.dismissTo("/");
     } catch (error) {
       return alert.showAlert({
         title: t("Alert_Auth_Error"),

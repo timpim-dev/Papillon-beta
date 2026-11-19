@@ -1,0 +1,67 @@
+diff --git a/node_modules/react-native-mmkv/ios/HybridMMKVPlatformContext.swift b/node_modules/react-native-mmkv/ios/HybridMMKVPlatformContext.swift
+index 0d19d4a..71278d6 100644
+--- a/node_modules/react-native-mmkv/ios/HybridMMKVPlatformContext.swift
++++ b/node_modules/react-native-mmkv/ios/HybridMMKVPlatformContext.swift
+@@ -34,9 +34,9 @@ class HybridMMKVPlatformContext: HybridMMKVPlatformContextSpec {
+     guard let appGroupID = Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String else {
+       return nil
+     }
+-    // Get the URL for the AppGroup
++    // Get the URL for the AppGroup; return nil when unsigned/sideloaded without entitlement
+     guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+-      throw RuntimeError.error(withMessage: "Container for AppGroup \"\(appGroupID)\" not accessible")
++      return nil
+     }
+     return url.path
+   }
+diff --git a/node_modules/react-native-mmkv/src/createMMKV/createMMKV.ts b/node_modules/react-native-mmkv/src/createMMKV/createMMKV.ts
+index 2d5b8c3..32883a0 100644
+--- a/node_modules/react-native-mmkv/src/createMMKV/createMMKV.ts
++++ b/node_modules/react-native-mmkv/src/createMMKV/createMMKV.ts
+@@ -21,11 +21,15 @@ export function createMMKV(configuration?: Configuration): MMKV {
+   if (Platform.OS === 'ios') {
+     if (config.path == null) {
+       // If the user set an App Group directory in Info.plist, let's use
+-      // the App Group as a MMKV path:
+-      const platformContext = getPlatformContext()
+-      const appGroupDirectory = platformContext.getAppGroupDirectory()
+-      if (appGroupDirectory != null) {
+-        config.path = appGroupDirectory
++      // the App Group as a MMKV path when accessible:
++      try {
++        const platformContext = getPlatformContext()
++        const appGroupDirectory = platformContext.getAppGroupDirectory()
++        if (appGroupDirectory != null) {
++          config.path = appGroupDirectory
++        }
++      } catch {
++        // Fallback to default baseDirectory when AppGroup container is inaccessible
+       }
+     }
+   }
+diff --git a/node_modules/react-native-mmkv/lib/createMMKV/createMMKV.js b/node_modules/react-native-mmkv/lib/createMMKV/createMMKV.js
+index a0a517b..976c4a6 100644
+--- a/node_modules/react-native-mmkv/lib/createMMKV/createMMKV.js
++++ b/node_modules/react-native-mmkv/lib/createMMKV/createMMKV.js
+@@ -15,11 +15,16 @@ export function createMMKV(configuration) {
+     if (Platform.OS === 'ios') {
+         if (config.path == null) {
+             // If the user set an App Group directory in Info.plist, let's use
+-            // the App Group as a MMKV path:
+-            const platformContext = getPlatformContext();
+-            const appGroupDirectory = platformContext.getAppGroupDirectory();
+-            if (appGroupDirectory != null) {
+-                config.path = appGroupDirectory;
++            // the App Group as a MMKV path when accessible:
++            try {
++                const platformContext = getPlatformContext();
++                const appGroupDirectory = platformContext.getAppGroupDirectory();
++                if (appGroupDirectory != null) {
++                    config.path = appGroupDirectory;
++                }
++            }
++            catch {
++                // Fallback to default baseDirectory when AppGroup container is inaccessible
+             }
+         }
+     }

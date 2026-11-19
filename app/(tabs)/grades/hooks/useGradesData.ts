@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { getCachedPeriodGrades } from "@/database/useGrades";
 import { useManagerSubscription } from "@/hooks/useManagerSubscription";
+import { allowAllAuthRetries } from "@/services/auth/coordinator";
 import type { AccountManager } from "@/services/shared";
-import { getManager } from "@/services/shared";
+import { getManager, initializeAccountManager } from "@/services/shared";
 import { Grade, GradeScore, Period, PeriodGrades, Subject } from "@/services/shared/grade";
 import type { Kid } from "@/services/shared/kid";
 import { Capabilities, ServiceFailure } from "@/services/shared/types";
+import { useAccountStore } from "@/stores/account";
 import { ScoreProperty } from "@/utils/grades/algorithms/helpers";
 import PapillonMedian from "@/utils/grades/algorithms/median";
 import PapillonSubjectAvg, { getSubjectAverage } from "@/utils/grades/algorithms/subject";
@@ -104,12 +107,16 @@ export function useGradesData(
   const [error, setError] = useState<Error | null>(null);
   const [failures, setFailures] = useState<ServiceFailure[]>([]);
 
-  // Avoids re-fetching a period that's already been loaded once.
-  const cacheRef = useRef<Map<string, PeriodGrades>>(new Map());
+  const lastUsedAccount = useAccountStore(state => state.lastUsedAccount);
+
+  // Avoids re-fetching a period that's already been loaded from a ready client.
+  const cacheRef = useRef<Map<string, { data: PeriodGrades; fromReadyClient: boolean }>>(new Map());
   // Discards responses from a period we've since navigated away from.
   const requestIdRef = useRef(0);
+  const subjectsCountRef = useRef(0);
+  subjectsCountRef.current = subjects.length;
 
-  const applyResult = useCallback((result: PeriodGrades | undefined) => {
+  const applyResult = useCallback((result: PeriodGrades | null | undefined) => {
     const rankScore = result?.rank;
     const studentScore = result?.studentOverall;
     const classScore = result?.classAverage;
@@ -128,17 +135,35 @@ export function useGradesData(
     });
   }, []);
 
+  useEffect(() => {
+    cacheRef.current.clear();
+    requestIdRef.current++;
+    applyResult(undefined);
+    setError(null);
+    setFailures([]);
+  }, [applyResult, lastUsedAccount]);
+
   const fetchGrades = useCallback(
     async (managerToUse: AccountManager, targetPeriod: Period, isRefresh = false) => {
-      const cacheKey = `${targetPeriod.id ?? targetPeriod.name}:${kid?.id ?? ""}`;
+      const accountKey = lastUsedAccount ?? "";
+      const cacheKey = `${accountKey}:${targetPeriod.name}:${targetPeriod.createdByAccount ?? ""}:${kid?.id ?? ""}`;
       const requestId = ++requestIdRef.current;
 
-      if (!isRefresh && cacheRef.current.has(cacheKey)) {
-        applyResult(cacheRef.current.get(cacheKey));
+      const isReady = managerToUse.hasReadyClients(Capabilities.GRADES);
+      const cachedMem = cacheRef.current.get(cacheKey);
+      if (!isRefresh && cachedMem && (cachedMem.fromReadyClient || !isReady)) {
+        applyResult(cachedMem.data);
         setLoading(false);
         setError(null);
         setFailures([]);
         return;
+      }
+
+      if (subjectsCountRef.current === 0 && targetPeriod.createdByAccount) {
+        const diskCached = getCachedPeriodGrades(`${targetPeriod.createdByAccount}:${kid?.id ?? ""}:${targetPeriod.name}`);
+        if (diskCached && requestId === requestIdRef.current) {
+          applyResult(diskCached);
+        }
       }
 
       if (isRefresh) { setRefreshing(true); } else { setLoading(true); }
@@ -146,7 +171,14 @@ export function useGradesData(
       setFailures([]);
 
       try {
-        const result = await managerToUse.getGradesForPeriod(
+        let activeManager = managerToUse;
+        if (isRefresh && !activeManager.hasReadyClients(Capabilities.GRADES)) {
+          allowAllAuthRetries();
+          activeManager = await initializeAccountManager(undefined, { force: true }).catch(() => activeManager);
+          if (requestId !== requestIdRef.current) { return; }
+        }
+
+        let result = await activeManager.getGradesForPeriod(
           targetPeriod,
           targetPeriod.createdByAccount,
           kid
@@ -154,9 +186,26 @@ export function useGradesData(
 
         if (requestId !== requestIdRef.current) { return; } // A newer request has taken over.
 
-        setFailures(managerToUse.getFailures(Capabilities.GRADES));
-        cacheRef.current.set(cacheKey, result);
-        applyResult(result);
+        if (isRefresh && (!result || ((result.subjects?.length ?? 0) === 0 && !activeManager.hasReadyClients(Capabilities.GRADES)))) {
+          allowAllAuthRetries();
+          activeManager = await initializeAccountManager(undefined, { force: true }).catch(() => activeManager);
+          if (requestId !== requestIdRef.current) { return; }
+          result = await activeManager.getGradesForPeriod(
+            targetPeriod,
+            targetPeriod.createdByAccount,
+            kid
+          );
+          if (requestId !== requestIdRef.current) { return; }
+        }
+
+        setFailures(activeManager.getFailures(Capabilities.GRADES));
+        const nowReady = activeManager.hasReadyClients(Capabilities.GRADES);
+        if (result) {
+          cacheRef.current.set(cacheKey, { data: result, fromReadyClient: nowReady });
+          applyResult(result);
+        } else if (subjectsCountRef.current === 0) {
+          applyResult(undefined);
+        }
       } catch (e) {
         if (requestId !== requestIdRef.current) { return; }
         warn(String(e), "useGradesData");
@@ -169,7 +218,7 @@ export function useGradesData(
         }
       }
     },
-    [applyResult, kid]
+    [applyResult, kid, lastUsedAccount]
   );
 
   useEffect(() => {

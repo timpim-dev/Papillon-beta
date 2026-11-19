@@ -3,7 +3,9 @@ import { router } from "expo-router";
 import React from "react";
 import { Alert, Image, ScrollView } from "react-native";
 
+import { ClearDatabaseForAccount } from "@/database/DatabaseProvider";
 import { removeBalanceFromDatabase } from "@/database/useBalance";
+import { clearAuthState } from "@/services/auth/coordinator";
 import { getManager } from "@/services/shared";
 import { useAccountStore } from "@/stores/account";
 import Avatar from "@/ui/components/Avatar";
@@ -38,7 +40,11 @@ export default function AccountsView() {
         {
           text: "Supprimer",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            for (const service of targetAccount.services ?? []) {
+              await ClearDatabaseForAccount(service.id).catch(() => undefined);
+              clearAuthState(service.id);
+            }
             store.removeAccount(targetAccount);
           },
         },
@@ -57,6 +63,8 @@ export default function AccountsView() {
         style: "destructive",
         onPress: () => {
           store.removeServiceFromAccount(serviceId);
+          void ClearDatabaseForAccount(serviceId).catch(() => undefined);
+          clearAuthState(serviceId);
           removeBalanceFromDatabase(serviceId);
           const manager = getManager();
           if (manager) {

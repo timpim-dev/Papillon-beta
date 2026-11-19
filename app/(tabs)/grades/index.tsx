@@ -270,7 +270,7 @@ const GradesView = () => {
                 {funModeEnabled && (() => {
                   const unopenedGrades = subjects
                     .flatMap(s => s.grades ?? [])
-                    .filter(g => !isGradeGachaOpened(g.id))
+                    .filter(g => !isGradeGachaOpened(g))
                     .sort((a, b) => (b.givenAt?.getTime() ?? 0) - (a.givenAt?.getTime() ?? 0));
                   if (unopenedGrades.length === 0) return null;
                   const openBatch = () => {
@@ -386,7 +386,7 @@ const GradesView = () => {
                 const formattedScore = isUsable
                   ? formatScoreForDisplay(score!.value, grade.outOf?.value ?? 20, displayScale)
                   : undefined;
-                const isMysteryConcealed = funModeEnabled && !isGradeGachaOpened(grade.id);
+                const isMysteryConcealed = funModeEnabled && !isGradeGachaOpened(grade);
 
                 return (
                   <List.Item

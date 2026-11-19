@@ -21,6 +21,8 @@ import { formatSchoolName } from '@/utils/format/formatSchoolName';
 import WebView from "react-native-webview";
 import { WebViewErrorEvent, WebViewMessage, WebViewNavigationEvent } from "react-native-webview/lib/WebViewTypes";
 
+import { clearAuthState } from "@/services/auth/coordinator";
+import { initializeAccountManager } from "@/services/shared";
 import { useAccountStore } from "@/stores/account";
 import { Services } from "@/stores/account/types";
 import ActivityIndicator from "@/ui/components/ActivityIndicator";
@@ -321,6 +323,8 @@ export default function PronoteENTLogin() {
         if (relinkServiceId && relinkAccountId) {
           store.updateServiceAuthData(relinkServiceId, auth);
           store.setLastUsedAccount(relinkAccountId);
+          clearAuthState(relinkServiceId);
+          void initializeAccountManager(relinkAccountId, { force: true }).catch(() => undefined);
         } else {
           store.addAccount({
             id: deviceUUID,

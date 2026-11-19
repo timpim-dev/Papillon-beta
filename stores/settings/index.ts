@@ -26,7 +26,6 @@ export const DEFAULT_HOME_WIDGETS: HomeWidgetConfig[] = [
   { id: "tasks", enabled: true },
   { id: "grades_average", enabled: true },
   { id: "latest_grades", enabled: true },
-  { id: "news", enabled: true },
 ];
 
 const VALID_HOME_WIDGET_IDS = new Set<HomeWidgetId>(

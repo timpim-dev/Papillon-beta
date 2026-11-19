@@ -5,7 +5,6 @@ import { Period } from '@/services/shared/grade';
 import { getCurrentPeriod } from '@/utils/grades/helper/period';
 import { useAccountStore } from '@/stores/account';
 import { Services } from '@/stores/account/types';
-import { useNews } from '@/database/useNews';
 import { getCanteenMenuFromCache } from '@/database/useCanteen';
 import { CanteenMenu } from '@/services/shared/canteen';
 
@@ -31,7 +30,6 @@ export const useHomeHeaderData = () => {
   const attendancesPeriodsRef = useRef<Period[]>([]);
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [weeklyMenus, setWeeklyMenus] = useState<CanteenMenu[]>([]);
-  const news = useNews();
 
   const absencesCount = useMemo(() => {
     if (!attendances) return 0;
@@ -80,7 +78,6 @@ export const useHomeHeaderData = () => {
       if (!manager) return;
       void updateAttendance(manager);
       void updateMenus(manager);
-      void manager.getNews().catch(() => {});
     };
 
     syncHomeHeaderManager(getManager());
@@ -115,6 +112,5 @@ export const useHomeHeaderData = () => {
     attendances,
     absencesCount,
     todayMenuMainDish,
-    news
   };
 };

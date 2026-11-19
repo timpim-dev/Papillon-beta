@@ -1,6 +1,6 @@
 import { SessionHandle, TabLocation } from "@blockshub/pawnote-lts";
 
-import { assertSessionUsable, getAuthState, reportSessionError } from "@/services/auth/coordinator";
+import { assertSessionUsable, clearAuthState, getAuthState, reportSessionError } from "@/services/auth/coordinator";
 import { AuthStep } from "@/services/auth/types";
 import { fetchPronoteAttendance, fetchPronoteAttendancePeriods } from "@/services/pronote/attendance";
 import { fetchPronoteCanteenMenu } from "@/services/pronote/canteen";
@@ -30,10 +30,11 @@ import { Homework } from "@/services/shared/homework";
 import { News } from "@/services/shared/news";
 import { Course, CourseDay, CourseResource } from "@/services/shared/timetable";
 import { Capabilities, SchoolServicePlugin } from "@/services/shared/types";
+import { useAccountStore } from "@/stores/account";
 import { Auth, Services } from "@/stores/account/types";
 import { error } from "@/utils/logger/logger";
 
-const PRONOTE_TOKEN_TTL_MS = 5 * 60 * 1000;
+const PRONOTE_TOKEN_TTL_MS = 9 * 60 * 1000;
 
 export class Pronote implements SchoolServicePlugin {
   displayName = "PRONOTE";
@@ -42,8 +43,24 @@ export class Pronote implements SchoolServicePlugin {
   session : SessionHandle | undefined = undefined;
   tokenExpiration = 0;
   authData: Auth = {};
+  private refreshPromise: Promise<Pronote> | null = null;
 
   constructor(public accountId: string) {}
+
+  private getLatestAuthData(fallback?: Auth): Auth {
+    try {
+      const accounts = useAccountStore.getState().accounts;
+      for (const acc of accounts) {
+        const match = acc.services?.find(s => s.id === this.accountId);
+        if (match?.auth) {
+          return match.auth;
+        }
+      }
+    } catch {
+      // Fallback to in-memory credentials when store isn't available
+    }
+    return fallback ?? this.authData;
+  }
 
   // The auth state has the last word: once the session expired, failed or
   // was reset, the one in memory is not trusted anymore.
@@ -56,30 +73,46 @@ export class Pronote implements SchoolServicePlugin {
   }
 
   async refreshAccount(credentials: Auth): Promise<Pronote> {
-    const refresh = (await refreshPronoteAccount(this.accountId, credentials));
-    this.authData = refresh.auth;
-    this.session = refresh.session;
-    this.tokenExpiration = Date.now() + PRONOTE_TOKEN_TTL_MS;
-    this.capabilities = [Capabilities.REFRESH];
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
 
-    const tabCapabilities: Partial<Record<TabLocation, Capabilities | Capabilities[]>> = {
-      [TabLocation.Assignments]: Capabilities.HOMEWORK,
-      [TabLocation.Discussions]: [Capabilities.CHAT_READ, Capabilities.CHAT_REPLY, Capabilities.CHAT_CREATE],
-      [TabLocation.Grades]: Capabilities.GRADES,
-      [TabLocation.Notebook]: [Capabilities.ATTENDANCE, Capabilities.ATTENDANCE_PERIODS],
-      [TabLocation.News]: Capabilities.NEWS,
-      [TabLocation.Menus]: Capabilities.CANTEEN_MENU,
-      [TabLocation.Timetable]: Capabilities.TIMETABLE,
-    };
+    const latestCredentials = this.getLatestAuthData(credentials);
+    const task = (async () => {
+      const refresh = await refreshPronoteAccount(this.accountId, latestCredentials);
+      this.authData = refresh.auth;
+      this.session = refresh.session;
+      this.tokenExpiration = Date.now() + PRONOTE_TOKEN_TTL_MS;
+      this.capabilities = [Capabilities.REFRESH];
 
-    for (const tab of this.session.user?.authorizations?.tabs ?? []) {
-      const capability = tabCapabilities[tab];
-      if (capability) {
-        this.capabilities.push(...(Array.isArray(capability) ? capability : [capability]));
+      const tabCapabilities: Partial<Record<TabLocation, Capabilities | Capabilities[]>> = {
+        [TabLocation.Assignments]: Capabilities.HOMEWORK,
+        [TabLocation.Discussions]: [Capabilities.CHAT_READ, Capabilities.CHAT_REPLY, Capabilities.CHAT_CREATE],
+        [TabLocation.Grades]: Capabilities.GRADES,
+        [TabLocation.Notebook]: [Capabilities.ATTENDANCE, Capabilities.ATTENDANCE_PERIODS],
+        [TabLocation.News]: Capabilities.NEWS,
+        [TabLocation.Menus]: Capabilities.CANTEEN_MENU,
+        [TabLocation.Timetable]: Capabilities.TIMETABLE,
+      };
+
+      for (const tab of this.session.user?.authorizations?.tabs ?? []) {
+        const capability = tabCapabilities[tab];
+        if (capability) {
+          this.capabilities.push(...(Array.isArray(capability) ? capability : [capability]));
+        }
+      }
+
+      return this;
+    })();
+
+    this.refreshPromise = task;
+    try {
+      return await task;
+    } finally {
+      if (this.refreshPromise === task) {
+        this.refreshPromise = null;
       }
     }
-		
-    return this;
   }
 
   /**
@@ -91,7 +124,7 @@ export class Pronote implements SchoolServicePlugin {
     for (let attempt = 0; ; attempt++) {
       assertSessionUsable(this.accountId);
       if (!this.isTokenValid()) {
-        await this.refreshAccount(this.authData);
+        await this.refreshAccount(this.getLatestAuthData());
       }
 
       const session = this.session;
@@ -100,7 +133,10 @@ export class Pronote implements SchoolServicePlugin {
       }
 
       try {
-        return await request(session);
+        const response = await request(session);
+        // Any successful Pronote request keeps the active session alive.
+        this.tokenExpiration = Date.now() + PRONOTE_TOKEN_TTL_MS;
+        return response;
       } catch (e) {
         const reason = classifyPronoteError(e);
         // A parallel request may already have renewed it: nothing to record then.
@@ -109,6 +145,7 @@ export class Pronote implements SchoolServicePlugin {
         }
         // The server refused the request, so nothing was written: replaying is safe.
         if (reason === "session_expired" && attempt === 0) {
+          clearAuthState(this.accountId);
           continue;
         }
         throw e;

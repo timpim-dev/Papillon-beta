@@ -4,6 +4,7 @@ import { instance } from "@blockshub/pawnote-lts";
 import { useCallback, useEffect, useState } from 'react';
 
 import { getWeekNumberFromDate } from '@/database/useHomework';
+import { allowAllAuthRetries } from '@/services/auth/coordinator';
 import { AuthFailureReason } from '@/services/auth/types';
 import { AuthenticationError } from '@/services/errors/AuthenticationError';
 import { SecurityChallengeError } from '@/services/errors/SecurityChallengeError';
@@ -22,6 +23,10 @@ const REMOVED_SERVICE_ID = 9;
 
 const HOME_SYNC_TTL_MS = 5 * 60 * 1000;
 const lastHomeSync = new Map<string, number>();
+
+export function clearHomeSyncCache(): void {
+  lastHomeSync.clear();
+}
 
 const DISCONNECTED_DESCRIPTIONS: Partial<Record<AuthFailureReason, string>> = {
   credential_lost: "Home_Sync_Disconnected_CredentialLost",
@@ -101,6 +106,9 @@ export const useHomeData = () => {
 
     setSyncing(true);
     try {
+      if (force) {
+        allowAllAuthRetries();
+      }
       await initializeAccountManager(lastUsedAccount, { force });
       debug("Refreshed Manager received");
 

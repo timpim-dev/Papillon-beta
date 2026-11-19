@@ -93,6 +93,20 @@ export async function ClearDatabaseForAccount(accountId: string) {
       }
     }
   }, 10000, 'ClearDatabaseForAccount');
+
+  try {
+    const { clearPeriodGradesCacheForAccount } = await import("./useGrades");
+    clearPeriodGradesCacheForAccount(accountId);
+  } catch (err) {
+    error(String(err));
+  }
+
+  try {
+    const { clearNewsMetaForAccount } = await import("./useNews");
+    clearNewsMetaForAccount(accountId);
+  } catch (err) {
+    error(String(err));
+  }
 }
 
 export async function removeAllDuplicates() {

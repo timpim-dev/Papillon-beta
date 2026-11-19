@@ -33,8 +33,7 @@ export type HomeWidgetId =
   | "timetable"
   | "tasks"
   | "grades_average"
-  | "latest_grades"
-  | "news";
+  | "latest_grades";
 
 export interface HomeWidgetConfig {
   id: HomeWidgetId;

@@ -1,10 +1,12 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useManagerSubscription } from "@/hooks/useManagerSubscription";
+import { allowAllAuthRetries } from "@/services/auth/coordinator";
 import type { AccountManager } from "@/services/shared";
-import { getManager } from "@/services/shared";
+import { getManager, initializeAccountManager } from "@/services/shared";
 import { Period } from "@/services/shared/grade";
 import { Capabilities, ServiceFailure } from "@/services/shared/types";
+import { useAccountStore } from "@/stores/account";
 import { useSettingsStore } from "@/stores/settings";
 import { getCurrentPeriod } from "@/utils/grades/helper/period";
 import { warn } from "@/utils/logger/logger";
@@ -52,10 +54,55 @@ export function usePeriodsData(): UsePeriodsDataResult {
 
   const savedPeriodName = useSettingsStore(state => state.personalization.gradesPeriodName);
   const mutateSettings = useSettingsStore(state => state.mutateProperty);
+  const lastUsedAccount = useAccountStore(state => state.lastUsedAccount);
 
   // Avoids re-applying the saved period every time the periods list is refreshed
   // once the user has actively picked one for this session.
   const hasUserSelection = useRef(false);
+  const retriedAuthRef = useRef(false);
+
+  useEffect(() => {
+    hasUserSelection.current = false;
+    retriedAuthRef.current = false;
+    setPeriods([]);
+    setCurrentPeriodState(undefined);
+    setError(null);
+    setFailures([]);
+  }, [lastUsedAccount]);
+
+  const applyPeriods = useCallback(
+    (rawPeriods: Period[]) => {
+      const dedupedByName = new Map<string, Period>();
+      for (const period of rawPeriods) {
+        const key = `${period.name.trim()}::${period.createdByAccount}`;
+        const existing = dedupedByName.get(key);
+        if (!existing || (existing.fromCache && !period.fromCache)) {
+          dedupedByName.set(key, period);
+        }
+      }
+      const sorted = sortPeriods(Array.from(dedupedByName.values()));
+      setPeriods(sorted);
+
+      setCurrentPeriodState(prev => {
+        // Match by both id AND name so cached DB period seamlessly promotes to live period.
+        if (prev) {
+          const stillThere =
+            sorted.find(p => p.id === prev.id && p.createdByAccount === prev.createdByAccount) ??
+            sorted.find(p => p.name.trim() === prev.name.trim() && p.createdByAccount === prev.createdByAccount) ??
+            sorted.find(p => p.id === prev.id || p.name.trim() === prev.name.trim());
+          if (stillThere) { return stillThere; }
+        }
+
+        if (!hasUserSelection.current && savedPeriodName) {
+          const saved = sorted.find(p => p.name.trim() === savedPeriodName.trim());
+          if (saved) { return saved; }
+        }
+
+        return sorted.length > 0 ? getCurrentPeriod(sorted) : undefined;
+      });
+    },
+    [savedPeriodName]
+  );
 
   const fetchPeriods = useCallback(async (managerToUse: AccountManager, isRefresh = false) => {
     if (isRefresh) { setRefreshing(true); } else { setLoading(true); }
@@ -63,25 +110,24 @@ export function usePeriodsData(): UsePeriodsDataResult {
     setFailures([]);
 
     try {
-      const result = await managerToUse.getGradesPeriods();
-      setFailures(managerToUse.getFailures(Capabilities.GRADES));
-      const sorted = sortPeriods(result);
-      setPeriods(sorted);
+      let activeManager = managerToUse;
+      if (isRefresh && !activeManager.hasReadyClients(Capabilities.GRADES)) {
+        allowAllAuthRetries();
+        activeManager = await initializeAccountManager(undefined, { force: true }).catch(() => activeManager);
+      }
 
-      setCurrentPeriodState(prev => {
-        // Keep the current selection alive if it still exists in the new list.
-        if (prev) {
-          const stillThere = sorted.find(p => p.id === prev.id);
-          if (stillThere) { return stillThere; }
-        }
+      let result = await activeManager.getGradesPeriods();
+      const currentFailures = activeManager.getFailures(Capabilities.GRADES);
 
-        if (!hasUserSelection.current && savedPeriodName) {
-          const saved = sorted.find(p => p.name === savedPeriodName);
-          if (saved) { return saved; }
-        }
+      if (result.length === 0 && currentFailures.length > 0 && !retriedAuthRef.current) {
+        retriedAuthRef.current = true;
+        allowAllAuthRetries();
+        activeManager = await initializeAccountManager(undefined, { force: true }).catch(() => activeManager);
+        result = await activeManager.getGradesPeriods();
+      }
 
-        return sorted.length > 0 ? getCurrentPeriod(sorted) : undefined;
-      });
+      setFailures(activeManager.getFailures(Capabilities.GRADES));
+      applyPeriods(result);
     } catch (e) {
       warn(String(e), "usePeriodsData");
       setFailures(managerToUse.getFailures(Capabilities.GRADES));
@@ -90,7 +136,7 @@ export function usePeriodsData(): UsePeriodsDataResult {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [savedPeriodName]);
+  }, [applyPeriods]);
 
   const handleManager = useCallback((manager: AccountManager) => {
     fetchPeriods(manager);

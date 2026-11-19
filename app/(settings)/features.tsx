@@ -39,7 +39,6 @@ export default function SettingsFeatures() {
   const homeworkReminderDaysBefore = settingsStore.homeworkReminderDaysBefore ?? 1;
   const homeworkDailyDigestEnabled = settingsStore.homeworkDailyDigestEnabled ?? true;
   const communicationNotificationsEnabled = settingsStore.communicationNotificationsEnabled ?? true;
-  const newsNotificationsEnabled = settingsStore.newsNotificationsEnabled ?? true;
   const funModeEnabled = settingsStore.funModeEnabled ?? false;
   const funModeOpeningStyle: FunOpeningStyle = settingsStore.funModeOpeningStyle ?? "envelope";
   const selectedGradeScale = getGradeDisplayScale(settingsStore.gradesDisplayScale);
@@ -303,31 +302,6 @@ export default function SettingsFeatures() {
                 }
                 mutateProperty("personalization", {
                   communicationNotificationsEnabled: value,
-                });
-              }}
-            />
-          </List.Trailing>
-        </List.Item>
-
-        <List.Item>
-          <List.Leading>
-            <Icon>
-              <Papicons name={"Newspaper"} />
-            </Icon>
-          </List.Leading>
-          <Typography variant="title">Infos &amp; Sondages</Typography>
-          <Typography color="textSecondary" numberOfLines={2}>
-            Alerte locale lorsqu&apos;une info ou un sondage Pronote est publié.
-          </Typography>
-          <List.Trailing>
-            <NativeSwitch
-              value={newsNotificationsEnabled}
-              onValueChange={async (value) => {
-                if (value) {
-                  await requestNotificationPermission();
-                }
-                mutateProperty("personalization", {
-                  newsNotificationsEnabled: value,
                 });
               }}
             />

@@ -150,7 +150,7 @@ export default function GradesModal() {
                 setGrade(matchingGrade);
                 setSubject(matchingSubject);
                 setSubjects(periodSubjects);
-                if (funModeEnabled && !isGradeGachaOpened(matchingGrade.id)) {
+                if (funModeEnabled && !isGradeGachaOpened(matchingGrade)) {
                   const firstItem: GachaQueueItem = {
                     grade: matchingGrade,
                     subject: matchingSubject,
@@ -161,7 +161,7 @@ export default function GradesModal() {
                     .flatMap(subj =>
                       (subj.grades ?? [])
                         .filter(
-                          cand => cand.id !== matchingGrade.id && !isGradeGachaOpened(cand.id)
+                          cand => cand.id !== matchingGrade.id && !isGradeGachaOpened(cand)
                         )
                         .map(cand => ({
                           grade: cand,

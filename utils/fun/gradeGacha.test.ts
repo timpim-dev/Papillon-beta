@@ -25,6 +25,7 @@ import {
   GACHA_RARITIES,
   GACHA_TIER_ORDER,
   getGachaCollectionStats,
+  getGradeGachaKey,
   getOpenedGradeGachaCount,
   isGradeGachaOpened,
   markGradeGachaOpened,
@@ -110,5 +111,41 @@ describe("gradeGacha", () => {
     expect(getOpenedGradeGachaCount()).toBe(0);
     expect(listener).toHaveBeenCalledTimes(2);
     unsub();
+  });
+
+  it("keeps opened state across session/ID changes using stable grade signature", () => {
+    resetOpenedGradeGachas();
+    const sessionOneGrade: Grade = {
+      id: "pronote-session-1-grade-99",
+      subjectName: "Physique-Chimie",
+      subjectId: "pc-1",
+      description: "TP Optique",
+      givenAt: new Date("2026-10-12T08:00:00Z"),
+      outOf: { value: 20 },
+      coefficient: 2,
+      studentScore: { value: 18 },
+      averageScore: { value: 14 },
+      minScore: { value: 8 },
+      maxScore: { value: 19.5 },
+      createdByAccount: "svc-1",
+    };
+
+    const sessionTwoGrade: Grade = {
+      ...sessionOneGrade,
+      id: "pronote-session-2-grade-147",
+      subjectId: "pc-2",
+    };
+
+    expect(getGradeGachaKey(sessionOneGrade)).toBe(getGradeGachaKey(sessionTwoGrade));
+    expect(isGradeGachaOpened(sessionOneGrade)).toBe(false);
+
+    markGradeGachaOpened(sessionOneGrade, "legendary");
+    expect(isGradeGachaOpened(sessionOneGrade)).toBe(true);
+    expect(isGradeGachaOpened(sessionTwoGrade)).toBe(true);
+
+    // Opening under the rotated ID must not double-count collection stats
+    markGradeGachaOpened(sessionTwoGrade, "legendary");
+    expect(getGachaCollectionStats().legendary).toBe(1);
+    expect(getOpenedGradeGachaCount()).toBeGreaterThanOrEqual(1);
   });
 });

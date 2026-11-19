@@ -21,6 +21,7 @@ import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, StyleSheet, T
 import Reanimated, { FadeInUp, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { clearAuthState } from "@/services/auth/coordinator";
 import { useAccountStore } from "@/stores/account";
 import { Services } from "@/stores/account/types";
 import Button from "@/ui/components/Button";
@@ -146,6 +147,7 @@ export default function PronoteLoginWithQR() {
         updatedAt: (new Date()).toISOString()
       });
       useAccountStore.getState().setLastUsedAccount(accountID)
+      clearAuthState(accountID)
       setTimeout(() => {
         setLoadingModalVisible(false);
         return router.dismissTo("/");

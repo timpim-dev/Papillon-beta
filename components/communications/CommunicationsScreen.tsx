@@ -7,12 +7,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AiAssistantScreen from "@/components/ai/AiAssistantScreen";
 import { dedupeChats, getChatsFromCache } from "@/database/useChat";
-import { getNewsRouteId, useNews } from "@/database/useNews";
 import { allowAllAuthRetries } from "@/services/auth/coordinator";
 import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/services/shared";
 import { Chat } from "@/services/shared/chat";
-import { News } from "@/services/shared/news";
 import { Capabilities } from "@/services/shared/types";
+import { useAccountStore } from "@/stores/account";
 import { useSettingsStore } from "@/stores/settings";
 import Avatar from "@/ui/components/Avatar";
 import ChipButton from "@/ui/components/ChipButton";
@@ -28,7 +27,6 @@ import { warn } from "@/utils/logger/logger";
 import {
   buildChatSignature,
   detectAndNotifyNewChats,
-  detectAndNotifyNewNews,
   getReadChatSignatures,
   isChatUnread,
   markAllChatsAsRead,
@@ -36,25 +34,13 @@ import {
 } from "@/utils/notifications/communicationsNotifications";
 
 import { cacheLiveChats } from "./liveChatsCache";
-import { cacheLiveNews } from "./liveNewsCache";
 
-type MessagesSubTab = "discussions" | "infos" | "ai";
+type MessagesSubTab = "discussions" | "ai";
 
 const SUB_TABS: Array<{ key: MessagesSubTab; label: string }> = [
   { key: "discussions", label: "Discussions" },
-  { key: "infos", label: "Infos & Sondages" },
   { key: "ai", label: "Assistant IA" },
 ];
-
-function stripHtmlPreview(html?: string): string {
-  if (!html) return "";
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function formatRelativeChatDate(date: Date): string {
   const ts = date instanceof Date ? date.getTime() : new Date(date).getTime();
@@ -90,9 +76,6 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   const notificationsEnabled = useSettingsStore(
     state => state.personalization.communicationNotificationsEnabled ?? true
   );
-  const newsNotificationsEnabled = useSettingsStore(
-    state => state.personalization.newsNotificationsEnabled ?? true
-  );
 
   const visibleSubTabs = useMemo(
     () => (aiAssistantEnabled ? SUB_TABS : SUB_TABS.filter(item => item.key !== "ai")),
@@ -100,22 +83,23 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   );
 
   const initialTab: MessagesSubTab =
-    tab === "infos" || tab === "discussions" || (tab === "ai" && aiAssistantEnabled)
+    tab === "discussions" || (tab === "ai" && aiAssistantEnabled)
       ? tab
       : "discussions";
   const [subTab, setSubTab] = useState<MessagesSubTab>(initialTab);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [chats, setChats] = useState<Chat[]>([]);
-  const [liveNews, setLiveNews] = useState<News[]>([]);
-  const [newsRefreshTick, setNewsRefreshTick] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshingNews, setIsRefreshingNews] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [readSet, setReadSet] = useState<Set<string>>(() => getReadChatSignatures());
-  const dbNews = useNews(newsRefreshTick);
+  const lastUsedAccount = useAccountStore(state => state.lastUsedAccount);
 
   useEffect(() => {
-    if (tab === "infos" || tab === "discussions" || (tab === "ai" && aiAssistantEnabled)) {
+    setChats([]);
+  }, [lastUsedAccount]);
+
+  useEffect(() => {
+    if (tab === "discussions" || (tab === "ai" && aiAssistantEnabled)) {
       setSubTab(tab);
     }
   }, [aiAssistantEnabled, tab]);
@@ -125,36 +109,6 @@ export default function CommunicationsScreen({ isModal = false }: Communications
       setSubTab("discussions");
     }
   }, [aiAssistantEnabled, subTab]);
-
-  const fetchNewsItems = useCallback(async (forceReconnect = false) => {
-    setIsRefreshingNews(true);
-    try {
-      let manager = getManager(true);
-      if (forceReconnect || !manager?.hasReadyClients(Capabilities.NEWS)) {
-        if (forceReconnect) {
-          allowAllAuthRetries();
-        }
-        try {
-          manager = await initializeAccountManager(undefined, { force: forceReconnect });
-        } catch {
-          manager = getManager(true);
-        }
-      }
-      if (manager) {
-        const fetched = await manager.getNews();
-        if (Array.isArray(fetched) && fetched.length > 0) {
-          cacheLiveNews(fetched);
-          setLiveNews(fetched);
-          await detectAndNotifyNewNews(fetched, newsNotificationsEnabled);
-        }
-        setNewsRefreshTick(n => n + 1);
-      }
-    } catch (err) {
-      warn(`Failed fetching news: ${String(err)}`, "CommunicationsScreen");
-    } finally {
-      setIsRefreshingNews(false);
-    }
-  }, [newsNotificationsEnabled]);
 
   const loadCached = useCallback(async () => {
     try {
@@ -202,19 +156,11 @@ export default function CommunicationsScreen({ isModal = false }: Communications
   useEffect(() => {
     void loadCached();
     void fetchChats();
-    void fetchNewsItems();
     const unsub = subscribeManagerUpdate(() => {
       void fetchChats();
-      void fetchNewsItems();
     });
     return () => unsub();
-  }, [fetchChats, fetchNewsItems, loadCached]);
-
-  useEffect(() => {
-    if (subTab === "infos" && liveNews.length === 0 && dbNews.length === 0) {
-      void fetchNewsItems();
-    }
-  }, [dbNews.length, fetchNewsItems, liveNews.length, subTab]);
+  }, [fetchChats, loadCached]);
 
   useFocusEffect(
     useCallback(() => {
@@ -241,39 +187,6 @@ export default function CommunicationsScreen({ isModal = false }: Communications
     return sortedChats.filter(c => isChatUnread(c, readSet)).length;
   }, [readSet, sortedChats]);
 
-  const mergedNews = useMemo(() => {
-    if (liveNews.length === 0) return dbNews;
-    if (dbNews.length === 0) return liveNews;
-    const byKey = new Map<string, News>();
-    for (const item of dbNews) {
-      byKey.set(getNewsRouteId(item), item);
-    }
-    for (const item of liveNews) {
-      // Live items carry the latest HTML content AND interactive survey `ref`.
-      byKey.set(getNewsRouteId(item), item);
-    }
-    return Array.from(byKey.values());
-  }, [dbNews, liveNews]);
-
-  const sortedNews = useMemo(() => {
-    return [...mergedNews].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, [mergedNews]);
-
-  const filteredNews = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return sortedNews;
-    return sortedNews.filter((item: News) => {
-      const hay = `${item.title ?? ""} ${item.author ?? ""} ${item.category ?? ""} ${stripHtmlPreview(item.content)}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [searchText, sortedNews]);
-
-  const unreadNewsCount = useMemo(() => {
-    return sortedNews.filter(item => !item.acknowledged).length;
-  }, [sortedNews]);
-
   const handleOpenChat = (chat: Chat) => {
     markChatAsRead(chat);
     setReadSet(getReadChatSignatures());
@@ -281,15 +194,6 @@ export default function CommunicationsScreen({ isModal = false }: Communications
     router.push({
       pathname: "/(features)/(communications)/thread",
       params: { sig },
-    });
-  };
-
-  const handleOpenNews = (item: News) => {
-    cacheLiveNews([item]);
-    const targetId = getNewsRouteId(item) || item.id;
-    router.push({
-      pathname: "/(features)/(news)/specific",
-      params: { id: targetId },
     });
   };
 
@@ -303,11 +207,7 @@ export default function CommunicationsScreen({ isModal = false }: Communications
       ? unreadCount > 0
         ? `${unreadCount} non lue(s)`
         : undefined
-      : subTab === "infos"
-        ? unreadNewsCount > 0
-          ? `${unreadNewsCount} à lire`
-          : `${sortedNews.length} publication(s)`
-        : "Coach de révision";
+      : "Coach de révision";
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -336,63 +236,53 @@ export default function CommunicationsScreen({ isModal = false }: Communications
                 icon="plus"
               />
             </View>
-          ) : subTab === "ai" ? (
+          ) : (
             <ChipButton
               onPress={() => router.push("/(settings)/ai")}
               icon="gears"
             />
-          ) : (
-            <ChipButton
-              onPress={() => {
-                void fetchNewsItems(true);
-              }}
-            >
-              Actualiser
-            </ChipButton>
           )
         }
         bottom={
           <View style={{ gap: 8 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
-            >
-              {visibleSubTabs.map(tab => {
-                const active = subTab === tab.key;
-                return (
-                  <Pressable
-                    key={tab.key}
-                    onPress={() => setSubTab(tab.key)}
-                    style={{
-                      paddingHorizontal: 14,
-                      paddingVertical: 8,
-                      borderRadius: 999,
-                      backgroundColor: active
-                        ? colors.primary
-                        : colors.item ?? colors.card,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
+            {visibleSubTabs.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
+              >
+                {visibleSubTabs.map(tab => {
+                  const active = subTab === tab.key;
+                  return (
+                    <Pressable
+                      key={tab.key}
+                      onPress={() => setSubTab(tab.key)}
                       style={{
-                        color: active ? "#FFFFFF" : String(colors.text),
-                        fontWeight: "700",
+                        paddingHorizontal: 14,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        backgroundColor: active
+                          ? colors.primary
+                          : colors.item ?? colors.card,
                       }}
                     >
-                      {tab.label}
-                    </Typography>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                      <Typography
+                        variant="caption"
+                        style={{
+                          color: active ? "#FFFFFF" : String(colors.text),
+                          fontWeight: "700",
+                        }}
+                      >
+                        {tab.label}
+                      </Typography>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
             {subTab !== "ai" && (
               <Search
-                placeholder={
-                  subTab === "discussions"
-                    ? "Rechercher une discussion..."
-                    : "Rechercher une info ou un sondage..."
-                }
+                placeholder="Rechercher une discussion..."
                 value={searchText}
                 setValue={setSearchText}
               />
@@ -408,115 +298,6 @@ export default function CommunicationsScreen({ isModal = false }: Communications
           topInset={headerHeight}
           onDeclinedOrDisabled={() => setSubTab("discussions")}
         />
-      ) : subTab === "infos" ? (
-        <List
-          safeHorizontalPadding={false}
-          contentContainerStyle={{
-            paddingTop: headerHeight + 8,
-            paddingHorizontal: 16,
-            paddingBottom: insets.bottom + 96,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshingNews}
-              onRefresh={() => {
-                void fetchNewsItems(true);
-              }}
-              progressViewOffset={headerHeight}
-            />
-          }
-        >
-          {filteredNews.length === 0 ? (
-            <Stack
-              vAlign="center"
-              hAlign="center"
-              padding={[24, 48]}
-              gap={10}
-            >
-              <Papicons name="Newspaper" size={44} color={String(colors.text)} opacity={0.45} />
-              <Typography variant="title" align="center">
-                {searchText.trim() ? "Aucun résultat" : "Aucune info ni sondage"}
-              </Typography>
-              <Typography variant="caption" color="textSecondary" align="center">
-                Les actualités et sondages de ton établissement apparaîtront ici.
-              </Typography>
-            </Stack>
-          ) : (
-            <List.Section>
-              {filteredNews.map(item => {
-                const isSurvey = Boolean(item.question);
-                const isUnread = !item.acknowledged;
-                const authorName = item.author || item.category || "Établissement";
-                const preview = stripHtmlPreview(item.content);
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    activeOpacity={0.75}
-                    onPress={() => handleOpenNews(item)}
-                  >
-                    <List.Item>
-                      <List.Leading>
-                        <Avatar
-                          size={42}
-                          initials={getInitials(authorName)}
-                          color={getProfileColorByName(authorName)}
-                        />
-                      </List.Leading>
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                          <View
-                            style={{
-                              paddingHorizontal: 8,
-                              paddingVertical: 2,
-                              borderRadius: 999,
-                              backgroundColor: isSurvey ? "#F59E0B22" : String(colors.primary) + "1E",
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              style={{
-                                color: isSurvey ? "#D97706" : String(colors.primary),
-                                fontWeight: "700",
-                                fontSize: 11,
-                              }}
-                            >
-                              {isSurvey ? "Sondage" : "Info"}
-                            </Typography>
-                          </View>
-                          <Typography variant="caption" color="textSecondary">
-                            {formatRelativeChatDate(item.createdAt)}
-                          </Typography>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          {isUnread && (
-                            <View
-                              style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: 4,
-                                backgroundColor: colors.primary,
-                              }}
-                            />
-                          )}
-                          <Typography
-                            variant="title"
-                            numberOfLines={1}
-                            style={{ flex: 1, fontWeight: isUnread ? "700" : "500" }}
-                          >
-                            {item.title || "Information"}
-                          </Typography>
-                        </View>
-                        <Typography variant="caption" color="textSecondary" numberOfLines={2}>
-                          {preview || authorName}
-                        </Typography>
-                      </View>
-                    </List.Item>
-                  </TouchableOpacity>
-                );
-              })}
-            </List.Section>
-          )}
-        </List>
       ) : (
         <List
           safeHorizontalPadding={false}

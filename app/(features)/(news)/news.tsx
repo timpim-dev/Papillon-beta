@@ -1,4 +1,5 @@
-import { useNews } from '@/database/useNews'
+import { cacheLiveNews } from '@/components/communications/liveNewsCache'
+import { markAllNewsAsRead, markNewsAsRead, useNews } from '@/database/useNews'
 import { allowAllAuthRetries } from '@/services/auth/coordinator'
 import { getManager, subscribeManagerUpdate } from '@/services/shared'
 import Avatar from '@/ui/components/Avatar'
@@ -97,9 +98,20 @@ const NewsView = () => {
         }
         bottom={<Search placeholder={t('News_Search_Placeholder')} color='#2B7ED6' onTextChange={(text) => setSearchText(text)} />}
         trailing={
-          Platform.OS === 'ios' ? (
-            <ChipButton single icon='cross' onPress={() => router.dismiss()} />
-          ) : undefined
+          <Stack direction="horizontal" gap={8} hAlign="center">
+            {sortedNews.some(item => !item.acknowledged) && (
+              <ChipButton
+                single
+                icon="check"
+                onPress={() => {
+                  void markAllNewsAsRead(sortedNews);
+                }}
+              />
+            )}
+            {Platform.OS === 'ios' && (
+              <ChipButton single icon='cross' onPress={() => router.dismiss()} />
+            )}
+          </Stack>
         }
       />
 
@@ -156,6 +168,10 @@ const NewsView = () => {
               <List.Item
                 key={item.id}
                 id={item.id}
+                onPress={() => {
+                  cacheLiveNews([{ ...item, acknowledged: true }]);
+                  void markNewsAsRead(item);
+                }}
                 href={{ pathname: "/(features)/(news)/specific", params: { id: item.id } }}
               >
                 <List.Leading>

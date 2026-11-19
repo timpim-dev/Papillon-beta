@@ -7,7 +7,7 @@ import {
 import { HeaderBackButton, useTheme } from "expo-router/react-navigation";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { t } from "i18next";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -22,7 +22,7 @@ import { Attachment, News as SkolengoNews } from "skolengojs";
 import { Papicons } from "@getpapillon/papicons";
 
 import RichNewsContent from "@/components/news/RichNewsContent";
-import { getNewsById } from "@/database/useNews";
+import { getNewsById, getNewsRouteId, markNewsAsRead } from "@/database/useNews";
 import { allowAllAuthRetries } from "@/services/auth/coordinator";
 import { getManager, initializeAccountManager, subscribeManagerUpdate } from "@/services/shared";
 import { News } from "@/services/shared/news";
@@ -59,6 +59,8 @@ const NewsPage = () => {
   const router = useRouter();
   const { colors } = useTheme();
   const [HTMLCleanupEnabled, setHTMLCleanupEnabled] = useState(true);
+  const loadedOnceRef = useRef(false);
+  const ackedKeysRef = useRef<Set<string>>(new Set());
 
   const loadNews = useCallback(
     async (options: { forceReconnect?: boolean; silent?: boolean } = {}) => {
@@ -84,6 +86,7 @@ const NewsPage = () => {
         setNews(result);
         setSurveyVersion(v => v + 1);
       } finally {
+        loadedOnceRef.current = true;
         setLoading(false);
         setRefreshing(false);
       }
@@ -92,17 +95,32 @@ const NewsPage = () => {
   );
 
   useEffect(() => {
+    loadedOnceRef.current = false;
     void loadNews();
+    let skipFirst = Boolean(getManager(true));
     const unsub = subscribeManagerUpdate(() => {
+      if (skipFirst) {
+        skipFirst = false;
+        return;
+      }
       void loadNews({ silent: true });
     });
     return () => unsub();
   }, [loadNews]);
 
   useEffect(() => {
-    if (!news || news.acknowledged || !news.ref) return;
+    if (!news) return;
+    const ackKey = getNewsRouteId(news) || news.id;
+    if (ackedKeysRef.current.has(ackKey) && news.acknowledged) return;
+    ackedKeysRef.current.add(ackKey);
+
     const acknowledgeNews = async () => {
       try {
+        if (!news.acknowledged) {
+          await markNewsAsRead(news);
+          setNews(prev => (prev ? { ...prev, acknowledged: true } : prev));
+        }
+
         const manager = getManager(true);
         if (!manager?.hasReadyClients(Capabilities.NEWS)) return;
 
@@ -110,7 +128,7 @@ const NewsPage = () => {
         const account = store.accounts.find(account => account.id === store.lastUsedAccount);
         const service = account?.services.find(service => service.id === news.createdByAccount);
 
-        if (service?.serviceId === Services.SKOLENGO) {
+        if (service?.serviceId === Services.SKOLENGO && !news.ref) {
           const attachment = new Attachment("", "", "");
           news.ref = new SkolengoNews(
             news.id,
@@ -188,6 +206,7 @@ const NewsPage = () => {
     setSubmittingSurvey(true);
     try {
       const updated = await manager.submitNewsSurvey(news);
+      await markNewsAsRead(updated);
       setNews(updated);
       setSurveyVersion(v => v + 1);
       Alert.alert("Sondage envoyé", "Ta réponse a bien été enregistrée.");
@@ -214,8 +233,13 @@ const NewsPage = () => {
     );
   }
 
-  const cleanedContent = HTMLCleanupEnabled ? cleanHtmlForArticle(news.content ?? "") : (news.content ?? "");
-  const plainFallback = formatHTML(news.content ?? "").trim();
+  const refContent =
+    typeof (news.ref as { content?: unknown } | undefined)?.content === "string"
+      ? ((news.ref as { content?: string }).content ?? "")
+      : "";
+  const effectiveContent = (news.content && news.content.trim()) ? news.content : refContent;
+  const cleanedContent = HTMLCleanupEnabled ? cleanHtmlForArticle(effectiveContent) : effectiveContent;
+  const plainFallback = formatHTML(effectiveContent).trim();
   const hasVisualHtml = Boolean(cleanedContent.trim()) && (Boolean(formatHTML(cleanedContent).trim()) || /<img\s/i.test(cleanedContent));
   const categoryLabel = news.category?.trim() || (news.question ? "Sondage" : "Information");
 
@@ -429,10 +453,10 @@ const NewsPage = () => {
               </List>
             )}
 
-            {hasVisualHtml || plainFallback || Boolean(news.content?.trim()) ? (
+            {hasVisualHtml || plainFallback || Boolean(effectiveContent.trim()) ? (
               <RichNewsContent
-                html={cleanedContent || news.content || plainFallback}
-                rawHtml={news.content}
+                html={cleanedContent || effectiveContent || plainFallback}
+                rawHtml={effectiveContent}
               />
             ) : news.attachments.length === 0 ? (
               <TypographyLegacy variant="body2" color="secondary">
@@ -464,7 +488,7 @@ const NewsPage = () => {
           </ListLegacy>
         )}
 
-        {!surveyRef && (hasVisualHtml || Boolean(news.content?.trim())) && (
+        {!surveyRef && (hasVisualHtml || Boolean(effectiveContent.trim())) && (
           <Stack gap={0} style={{ opacity: 0.4 }}>
             <TypographyLegacy variant="caption">
               Si cette actualité ne s'affiche pas correctement,

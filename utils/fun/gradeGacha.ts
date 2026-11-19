@@ -144,6 +144,7 @@ export interface EvaluatedGradeGacha {
 
 const STORAGE_ID = "papillon-fun-mode";
 const OPENED_IDS_KEY = "opened_grade_gacha_ids_v1";
+const OPENED_SIGNATURES_KEY = "opened_grade_gacha_sigs_v1";
 const STATS_KEY = "gacha_collection_stats_v2";
 
 const funStorage = createMMKV({ id: STORAGE_ID });
@@ -263,6 +264,20 @@ export function evaluateGradeGacha(grade: Grade): EvaluatedGradeGacha {
   };
 }
 
+export function getGradeGachaKey(gradeOrId: Grade | string): string {
+  if (typeof gradeOrId === "string") {
+    return gradeOrId;
+  }
+  const datePart = gradeOrId.givenAt
+    ? new Date(gradeOrId.givenAt).toISOString().slice(0, 10)
+    : "";
+  const subjectPart = (gradeOrId.subjectName ?? gradeOrId.subjectId ?? "").trim().toLowerCase();
+  const scorePart = gradeOrId.studentScore?.value ?? "";
+  const outOfPart = gradeOrId.outOf?.value ?? "";
+  const descPart = (gradeOrId.description ?? "").trim().toLowerCase();
+  return `gacha:${subjectPart}:${scorePart}/${outOfPart}:${datePart}:${descPart}`;
+}
+
 function readOpenedIds(): string[] {
   const raw = funStorage.getString(OPENED_IDS_KEY);
   if (!raw) return [];
@@ -274,13 +289,30 @@ function readOpenedIds(): string[] {
   }
 }
 
-export function isGradeGachaOpened(gradeId: string): boolean {
-  if (!gradeId) return true;
-  return readOpenedIds().includes(gradeId);
+function readOpenedSignatures(): string[] {
+  const raw = funStorage.getString(OPENED_SIGNATURES_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function isGradeGachaOpened(gradeOrId: Grade | string): boolean {
+  if (!gradeOrId) return true;
+  if (typeof gradeOrId === "string") {
+    return readOpenedIds().includes(gradeOrId) || readOpenedSignatures().includes(gradeOrId);
+  }
+  const id = gradeOrId.id;
+  const sig = getGradeGachaKey(gradeOrId);
+  if (id && readOpenedIds().includes(id)) return true;
+  return readOpenedSignatures().includes(sig);
 }
 
 export function getOpenedGradeGachaCount(): number {
-  return readOpenedIds().length;
+  return Math.max(readOpenedIds().length, readOpenedSignatures().length);
 }
 
 export function getEmptyGachaStats(): Record<GachaRarityTier, number> {
@@ -314,24 +346,43 @@ export function getGachaCollectionStats(): Record<GachaRarityTier, number> {
 }
 
 export function markGradeGachaOpened(
-  gradeId: string,
+  gradeOrId: Grade | string,
   tier?: GachaRarityTier
 ): void {
-  if (!gradeId) return;
-  const existing = readOpenedIds();
-  if (!existing.includes(gradeId)) {
-    funStorage.set(OPENED_IDS_KEY, JSON.stringify([...existing, gradeId].slice(-500)));
-    if (tier) {
-      const stats = getGachaCollectionStats();
-      stats[tier] = (stats[tier] ?? 0) + 1;
-      funStorage.set(STATS_KEY, JSON.stringify(stats));
+  if (!gradeOrId) return;
+  const wasAlreadyOpened = isGradeGachaOpened(gradeOrId);
+  const id = typeof gradeOrId === "string" ? gradeOrId : gradeOrId.id;
+  const sig = typeof gradeOrId === "string" ? undefined : getGradeGachaKey(gradeOrId);
+
+  let changed = false;
+  if (id) {
+    const existingIds = readOpenedIds();
+    if (!existingIds.includes(id)) {
+      funStorage.set(OPENED_IDS_KEY, JSON.stringify([...existingIds, id].slice(-500)));
+      changed = true;
     }
+  }
+  if (sig) {
+    const existingSigs = readOpenedSignatures();
+    if (!existingSigs.includes(sig)) {
+      funStorage.set(OPENED_SIGNATURES_KEY, JSON.stringify([...existingSigs, sig].slice(-500)));
+      changed = true;
+    }
+  }
+
+  if (!wasAlreadyOpened && changed && tier) {
+    const stats = getGachaCollectionStats();
+    stats[tier] = (stats[tier] ?? 0) + 1;
+    funStorage.set(STATS_KEY, JSON.stringify(stats));
+  }
+  if (changed) {
     notifyListeners();
   }
 }
 
 export function resetOpenedGradeGachas(): void {
   funStorage.set(OPENED_IDS_KEY, JSON.stringify([]));
+  funStorage.set(OPENED_SIGNATURES_KEY, JSON.stringify([]));
   funStorage.set(STATS_KEY, JSON.stringify(getEmptyGachaStats()));
   notifyListeners();
 }

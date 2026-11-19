@@ -61,15 +61,6 @@ const WIDGET_METADATA = new Map<HomeWidgetId, WidgetMeta>([
       icon: "Star",
     },
   ],
-  [
-    "news",
-    {
-      id: "news",
-      titleKey: "Home_Widget_News",
-      descriptionKey: "Home_Widget_News_Description",
-      icon: "Newspaper",
-    },
-  ],
 ]);
 
 const SettingsHomeWidgets = () => {
