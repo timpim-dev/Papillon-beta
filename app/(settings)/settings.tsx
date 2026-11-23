@@ -239,6 +239,15 @@ export default function SettingsIndex() {
         router.navigate("/(settings)/ai")
       }
     },
+    {
+      icon: <Papicons name={"Calendar"} />,
+      title: "Synchro Calendrier",
+      description: "Google Agenda, iCloud & .ics",
+      color: "#0EA5E9",
+      onPress: () => {
+        router.navigate("/(settings)/calendar_sync")
+      }
+    },
     ...(MAGIC_AVAILABLE ? [{
       icon: <Papicons name={"Sparkles"} />,
       title: "Magic+",

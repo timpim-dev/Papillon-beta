@@ -167,6 +167,14 @@ export default function Layout() {
             headerLargeTitle: false,
           }}
         />
+        <Stack.Screen
+          name="calendar_sync"
+          options={{
+            headerTitle: "Synchro Calendrier",
+            headerBackButtonDisplayMode: "minimal",
+            headerLargeTitle: false,
+          }}
+        />
       </Stack>
     </>
   );

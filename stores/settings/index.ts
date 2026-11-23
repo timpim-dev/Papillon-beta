@@ -7,6 +7,7 @@ import { MAGIC_URL } from "@/utils/endpoints";
 
 import { createMMKVStorage } from "../global";
 import {
+  CalendarSyncConfig,
   HomeWidgetConfig,
   HomeWidgetId,
   Personalization,
@@ -137,6 +138,47 @@ export function resolveWearConfig(personalization?: Personalization): WearConfig
   };
 }
 
+export const DEFAULT_CALENDAR_SYNC_CONFIG: CalendarSyncConfig = {
+  enabled: false,
+  targetCalendarIds: [],
+  autoSync: true,
+  weeksAhead: 4,
+  includeCanceled: false,
+  includeEmoji: true,
+  includeDetails: true,
+};
+
+export function resolveCalendarSyncConfig(
+  personalization?: Personalization
+): CalendarSyncConfig {
+  const saved = personalization?.calendarSync;
+  const rawWeeks = typeof saved?.weeksAhead === "number" && Number.isFinite(saved.weeksAhead)
+    ? Math.round(saved.weeksAhead)
+    : DEFAULT_CALENDAR_SYNC_CONFIG.weeksAhead;
+  const weeksAhead = Math.min(12, Math.max(1, rawWeeks));
+
+  const seen = new Set<string>();
+  const targetCalendarIds: string[] = [];
+  for (const id of saved?.targetCalendarIds ?? []) {
+    if (typeof id === "string" && id.trim().length > 0 && !seen.has(id)) {
+      seen.add(id);
+      targetCalendarIds.push(id);
+    }
+  }
+
+  return {
+    enabled: Boolean(saved?.enabled),
+    targetCalendarIds,
+    autoSync: saved?.autoSync ?? DEFAULT_CALENDAR_SYNC_CONFIG.autoSync,
+    weeksAhead,
+    includeCanceled: saved?.includeCanceled ?? DEFAULT_CALENDAR_SYNC_CONFIG.includeCanceled,
+    includeEmoji: saved?.includeEmoji ?? DEFAULT_CALENDAR_SYNC_CONFIG.includeEmoji,
+    includeDetails: saved?.includeDetails ?? DEFAULT_CALENDAR_SYNC_CONFIG.includeDetails,
+    lastSyncedAt: saved?.lastSyncedAt,
+    lastSyncSummary: saved?.lastSyncSummary,
+  };
+}
+
 const defaultPersonalization: Personalization = {
   fontFamily: "sn-pro",
   colorSelected: Colors.GREEN,
@@ -170,6 +212,7 @@ const defaultPersonalization: Personalization = {
   aiModel: "gemini-2.5-flash",
   funModeEnabled: false,
   funModeOpeningStyle: "envelope",
+  calendarSync: DEFAULT_CALENDAR_SYNC_CONFIG,
 };
 
 export const useSettingsStore = create<SettingsStorage>()(

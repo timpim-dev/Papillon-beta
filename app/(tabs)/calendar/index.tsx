@@ -243,6 +243,10 @@ function TabOneScreen() {
     router.push({ pathname: "./calendar/icals", params: {} });
   }, [router]);
 
+  const openCalendarSync = useCallback(() => {
+    router.push("/(settings)/calendar_sync");
+  }, [router]);
+
   return (
     <>
       <Calendar
@@ -309,10 +313,15 @@ function TabOneScreen() {
                 state: isWeekMode ? "on" : "off",
               },
               { id: "icals", title: t('Tab_Calendar_Icals'), papicon: "Calendar" },
+              { id: "calendar_sync", title: "Synchroniser (iCloud / Google)", papicon: "ArrowUpBox" },
             ]}
             onPressAction={({ nativeEvent }) => {
               if (nativeEvent.event === "icals") {
                 openIcals();
+                return;
+              }
+              if (nativeEvent.event === "calendar_sync") {
+                openCalendarSync();
                 return;
               }
               setViewMode(nativeEvent.event === "mode:week" ? "week" : "list");
@@ -346,6 +355,12 @@ function TabOneScreen() {
               onPress={openIcals}
             >
               {t('Tab_Calendar_Icals')}
+            </Stack.Toolbar.MenuAction>
+            <Stack.Toolbar.MenuAction
+              icon="arrow.triangle.2.circlepath.circle"
+              onPress={openCalendarSync}
+            >
+              Synchroniser (iCloud / Google)
             </Stack.Toolbar.MenuAction>
           </Stack.Toolbar.Menu>
         </Stack.Toolbar>

@@ -71,6 +71,18 @@ export interface AccountWallpaper {
   wallpaperGradient?: { colors: string[]; seed: number };
 }
 
+export interface CalendarSyncConfig {
+  enabled: boolean;
+  targetCalendarIds: string[];
+  autoSync: boolean;
+  weeksAhead: number;
+  includeCanceled: boolean;
+  includeEmoji: boolean;
+  includeDetails: boolean;
+  lastSyncedAt?: string;
+  lastSyncSummary?: string;
+}
+
 export interface Personalization {
   fontFamily?: AppFontFamily;
   gradesDisplayScale?: "20" | "10" | "5" | "percentage";
@@ -124,4 +136,6 @@ export interface Personalization {
   // Fun Mode (grade gacha reveal, off by default)
   funModeEnabled?: boolean;
   funModeOpeningStyle?: "envelope" | "gift";
+  // Native Calendar Sync (iCloud / Google Calendar via expo-calendar)
+  calendarSync?: CalendarSyncConfig;
 }

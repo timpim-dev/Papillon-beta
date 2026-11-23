@@ -72,6 +72,10 @@ export default {
         ],
         CADisableMinimumFrameDurationOnPhone: true,
         LSApplicationQueriesSchemes: ["maps"],
+        NSCalendarsUsageDescription:
+          "Papillon + utilise ton calendrier pour synchroniser tes cours avec iCloud et Google Agenda.",
+        NSCalendarsFullAccessUsageDescription:
+          "Papillon + utilise ton calendrier pour synchroniser tes cours avec iCloud et Google Agenda.",
       },
       entitlements: {
         "com.apple.security.application-groups": [
@@ -136,6 +140,15 @@ export default {
       ],
       "expo-web-browser",
       "expo-secure-store",
+      [
+        "expo-calendar",
+        {
+          calendarPermission:
+            "Papillon + utilise ton calendrier pour synchroniser tes cours avec iCloud et Google Agenda.",
+          remindersPermission:
+            "Papillon + n'accède aux rappels que si nécessaire pour la synchronisation du calendrier.",
+        },
+      ],
       [
         "expo-location",
         {
